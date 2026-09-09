@@ -817,9 +817,20 @@ its own permissions, and no verdict was written. `actions/check-browser` now res
 `PITCREW_PLAYWRIGHT_MODULE` first, then the known locations, `npm root -g` and a depth-limited
 search of named roots, never the workspace - and starts Chromium with it. A `stat` would not do: a package that resolves but cannot
 start the browser fails at the same point in the run as no package at all. The proven path is
-exported, so the recorder loads what the preflight loaded. Nothing is installed at run time; a
-driver fetched into this job would land next to the model key and the credentials of the environment
-under test. A failure ends the job in seconds, with one sentence in the log and on the pull request.
+exported, so the recorder loads what the preflight loaded. A failure ends the job in seconds, with
+one sentence in the log and on the pull request.
+
+**What it proves, the workflow provides.** The preflight was written believing the image had a
+driver. It does not, and never did: the official `mcr.microsoft.com/playwright` images ship the
+browsers and delete the driver in their last layer. Until 1.2.0 the agent had been quietly filling
+that gap itself, so removing that behaviour removed the only supply. The step before the preflight
+therefore installs `playwright-core` at the version in the image tag - an exact release or the job
+fails, so driver and baked browsers cannot drift - and it runs before any step that carries a
+secret. **The preflight itself still installs nothing**, and neither does the agent: a driver
+fetched by either would be a reaction to what it found, in a job that holds the model key and the
+credentials of the environment under test. What that fetch costs is in
+[`docs/threat-model.md`](threat-model.md); an image that carries its own driver skips it through
+`PITCREW_PLAYWRIGHT_MODULE`.
 
 **The agent knows when it has to stop.** `DEADLINE` is the job's timeout minus five minutes, and the
 prompt says to file the report and reply when it comes. The OpenCode call is wrapped in `timeout` at

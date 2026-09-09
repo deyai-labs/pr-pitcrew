@@ -235,6 +235,26 @@ you want to extend to a repository you do not control. See the README.
 version tag rather than a digest. It is a container, not a script that runs beside your secrets in
 the same process, but it is the environment those secrets live in for that job.
 
+**The Playwright driver is installed from npm.** That image ships the browsers and deletes the
+driver that speaks to them - `rm -rf /ms-playwright-agent` is upstream's last layer, and it always
+has been. So [`.github/workflows/acceptance-test.yml`](../.github/workflows/acceptance-test.yml)
+installs `playwright-core` before the run, which is a second fetch into that job. Three things bound
+it, and a change that breaks any of them is a change to this section:
+
+- **The version is not a choice.** It is read out of the image tag and has to parse as an exact
+  release, so the driver is the one the baked browsers were built with. A dist-tag or a digest is
+  refused rather than installed.
+- **No secret is in scope.** Secrets reach exactly one step of that job, `actions/agent`, through
+  its `with:`. The install step runs before it and sees none of them. That is weaker than a sandbox
+  and stronger than nothing: an npm install script still executes in the job, and a package that
+  leaves something behind is not stopped by a later step's secrets arriving after it.
+- **The agent still installs nothing.** `actions/check-browser` resolves and launches; it never
+  fetches. A model that meets a missing piece writes a report about it, which is the rule 1.2.0 was
+  written for and is unchanged.
+
+An image that carries its own driver skips the step entirely: set `PITCREW_PLAYWRIGHT_MODULE`, and
+nothing is installed on top of it.
+
 ## Where your data goes
 
 Out of the runner, to the model provider **you** configured, and nowhere else:

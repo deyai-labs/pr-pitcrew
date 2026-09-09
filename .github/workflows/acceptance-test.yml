@@ -183,10 +183,54 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           pr-number: ${{ github.event.pull_request.number || github.event.issue.number }}
 
-      # The image brings the browsers; the recorder needs the driver that speaks
-      # to them, and one run had the first without the second. Proven here, with
-      # a real launch, before a model is called: a failure costs seconds instead
-      # of half an hour of an agent improvising around a broken rig.
+      # The image brings the browsers and *deletes* the driver that speaks to
+      # them: upstream's last layer is `rm -rf /ms-playwright-agent`, and it has
+      # been there for as long as the noble images have. So there is nothing to
+      # find, in any version, and the run that discovered this had the preflight
+      # refusing a rig that the package's own default could never satisfy.
+      #
+      # The driver is therefore installed here rather than looked for. Three
+      # things make that acceptable, and all three have to stay true:
+      #
+      #  * **The version is the image's own.** It comes out of the image tag, so
+      #    the driver and the browsers baked in are always the same release.
+      #    Nothing floats.
+      #  * **No secret is in scope.** Secrets reach exactly one step in this job,
+      #    `actions/agent` below, through its `with:`. This step runs before it
+      #    and sees none of them.
+      #  * **The agent still installs nothing.** That is the rule 1.2.0 was
+      #    written for, and it is unchanged: a model that meets a missing piece
+      #    writes a report about it. What changed is that the piece is no longer
+      #    missing.
+      #
+      # A consumer who names `PITCREW_PLAYWRIGHT_MODULE` has an image with its
+      # own driver and gets nothing installed on top of it.
+      - name: Add the Playwright driver the image removes
+        if: vars.PITCREW_PLAYWRIGHT_MODULE == ''
+        env:
+          PLAYWRIGHT_IMAGE: ${{ inputs.playwright-image }}
+        run: |
+          set -euo pipefail
+          # mcr.microsoft.com/playwright:v1.62.1-noble -> 1.62.1
+          tag="${PLAYWRIGHT_IMAGE##*:}"
+          version="${tag%%-*}"
+          version="${version#v}"
+          # An exact release or nothing. A dist-tag (`next`) or a digest would
+          # both survive the parse above and install something that floats -
+          # which is the one property this step must not have.
+          case "$version" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *)
+              echo "::error::No exact Playwright version in the image \`${PLAYWRIGHT_IMAGE}\`, so there is nothing to match the driver to. Pin the image to a version tag such as \`mcr.microsoft.com/playwright:v1.62.1-noble\`, or set PITCREW_PLAYWRIGHT_MODULE to a driver your own image already carries."
+              exit 1
+              ;;
+          esac
+          echo "Installing playwright-core@${version}, the version this image's browsers were baked with."
+          npm install -g --no-audit --no-fund "playwright-core@${version}"
+
+      # Provisioned above, proven here: this step resolves the driver and starts
+      # a real browser with it before a model is called. A failure costs seconds
+      # instead of half an hour of an agent improvising around a broken rig.
       - uses: RobYed/pr-pitcrew/actions/check-browser@main
         with:
           playwright-image: ${{ inputs.playwright-image }}

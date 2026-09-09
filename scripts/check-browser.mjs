@@ -14,9 +14,11 @@
  * called. A `stat` would not do: a package that resolves but cannot start
  * Chromium fails at exactly the same point in the run as no package at all.
  *
- * There is no install fallback, and that is a decision rather than an omission.
- * Fetching a driver at run time into the job that holds the model key and the
- * credentials of the environment under test is not a fix.
+ * There is no install fallback here, and that is a decision rather than an
+ * omission: this step runs beside the model key and the credentials of the
+ * environment under test, and it must not react to what it finds. Provisioning
+ * is the workflow's job and happens in a step before this one, at the image's
+ * own version, where no secret is in scope. This step only proves.
  *
  * Environment: PLAYWRIGHT_MODULE (an override; when set it must work),
  * PLAYWRIGHT_IMAGE (named in the failure message), GITHUB_ENV, GITHUB_OUTPUT,
@@ -147,10 +149,11 @@ function failureSentence(image, override) {
   }
   return (
     `No Playwright driver in ${where}: the browsers may be there, but no \`playwright-core\` package could be ` +
-    'loaded and started, so nothing can be demonstrated. Either run this job on an image that ships the driver ' +
-    'next to the browsers (`mcr.microsoft.com/playwright:v1.62.1-noble` does), or set `PLAYWRIGHT_MODULE` to the ' +
-    'package in your own image. Nothing is installed at run time: the job holds the model key and the credentials ' +
-    'of the environment under test.'
+    'loaded and started, so nothing can be demonstrated. The official `mcr.microsoft.com/playwright` images ship ' +
+    'the browsers and delete the driver, so the workflow installs it in the step before this one, at the version ' +
+    'in the image tag - check whether that step ran and what it said. Pin the image to a version tag so a version ' +
+    'can be read from it, or set `PLAYWRIGHT_MODULE` to a driver your own image already carries. This step ' +
+    'installs nothing: it runs beside the model key and the credentials of the environment under test.'
   );
 }
 

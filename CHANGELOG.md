@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-09-09
+
+### Fixed
+
+- **The acceptance test runs again.** Since 1.2.0 it stopped in seconds on every repository,
+  including one whose image was the documented default: the official
+  `mcr.microsoft.com/playwright` images ship the browsers and delete the driver that speaks to
+  them (`rm -rf /ms-playwright-agent`, upstream's last layer, in every version), so
+  `actions/check-browser` refused a rig that nothing could satisfy. Before 1.2.0 the agent
+  installed the driver itself mid-run, which is what 1.2.0 deliberately removed — and with it,
+  unnoticed, the only thing that had been providing one.
+
+  The workflow now installs `playwright-core` itself, before any step that carries a secret and
+  at the exact version in the image tag, so driver and baked browsers cannot drift. The preflight
+  is unchanged in what it does: it resolves and launches, and it still installs nothing. Consumers
+  need no change; an image with its own driver still skips this through
+  `PITCREW_PLAYWRIGHT_MODULE`. What it costs is one more fetch into that job — see
+  [`docs/threat-model.md`](docs/threat-model.md), "The Playwright driver is installed from npm".
+- The preflight's failure message no longer claims that the default image ships a driver. It
+  points at the install step instead.
+
 ## [1.2.0] - 2026-09-02
 
 ### Fixed
