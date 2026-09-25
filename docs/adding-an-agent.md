@@ -202,7 +202,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: RobYed/pr-pitcrew/actions/agent@main
+      - uses: deyai-labs/pr-pitcrew/actions/agent@main
         with:
           agent: legal-review
           api-key: ${{ secrets.api-key }}
@@ -263,7 +263,7 @@ concurrency:
 
 jobs:
   legal-review:
-    uses: RobYed/pr-pitcrew/.github/workflows/legal-review.yml@v1
+    uses: deyai-labs/pr-pitcrew/.github/workflows/legal-review.yml@v1
     secrets:
       api-key: ${{ secrets.PITCREW_LLM_API_KEY }}
 ```

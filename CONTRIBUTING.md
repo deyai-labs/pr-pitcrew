@@ -18,7 +18,7 @@ agree on the shape before the diff exists.
 Node 20.10 or newer. That is the whole setup.
 
 ```sh
-git clone https://github.com/RobYed/pr-pitcrew.git
+git clone https://github.com/deyai-labs/pr-pitcrew.git
 cd pr-pitcrew
 node --test
 ```
@@ -94,13 +94,13 @@ profile, say so in the pull request and say why.
 
 One limitation, stated honestly, because it will bite you: **a called workflow's
 `uses:` cannot be an expression.** So `.github/workflows/bug-review.yml` reaches
-for `RobYed/pr-pitcrew/actions/agent@main` - the action as it is on the default
+for `deyai-labs/pr-pitcrew/actions/agent@main` - the action as it is on the default
 branch, not as your pull request changes it.
 
 A pull request that touches `actions/agent/action.yml` is therefore reviewed by
 the *old* action, and the self-review passing proves nothing about your change.
 Verify it some other way: a fork, or a scratch repository whose workflow points
-at `RobYed/pr-pitcrew/actions/agent@your-branch`. Then say in the pull request
+at `deyai-labs/pr-pitcrew/actions/agent@your-branch`. Then say in the pull request
 which one you did.
 
 Changes to `agents/`, `profiles/`, `scripts/` and the reusable workflows do not
@@ -117,7 +117,7 @@ no longer holds is worse than no document: it gets read and believed.
 
 Maintainer task, and unusual enough to describe in full.
 
-`main` keeps `uses: RobYed/pr-pitcrew/actions/...@main`. That is what lets this
+`main` keeps `uses: deyai-labs/pr-pitcrew/actions/...@main`. That is what lets this
 repository review its own pull requests with its own code, and it is also why a
 tag cannot point at a commit on `main`: a tag whose workflows still say
 `@main` would quietly run the newest code inside a version somebody pinned on

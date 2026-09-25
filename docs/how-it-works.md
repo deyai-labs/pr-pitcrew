@@ -15,7 +15,7 @@ A workflow of about seventeen lines, and nothing else:
 ```yaml
 jobs:
   bug-review:
-    uses: RobYed/pr-pitcrew/.github/workflows/bug-review.yml@v1
+    uses: deyai-labs/pr-pitcrew/.github/workflows/bug-review.yml@v1
     secrets:
       api-key: ${{ secrets.PITCREW_LLM_API_KEY }}
 ```
@@ -770,11 +770,11 @@ jobs:
   ci:
     uses: ./.github/workflows/ci.yml            # yours
   bug:
-    uses: RobYed/pr-pitcrew/.github/workflows/bug-review.yml@v1
+    uses: deyai-labs/pr-pitcrew/.github/workflows/bug-review.yml@v1
     secrets:
       api-key: ${{ secrets.PITCREW_LLM_API_KEY }}
   security:
-    uses: RobYed/pr-pitcrew/.github/workflows/security-review.yml@v1
+    uses: deyai-labs/pr-pitcrew/.github/workflows/security-review.yml@v1
     secrets:
       api-key: ${{ secrets.PITCREW_LLM_API_KEY }}
 ```

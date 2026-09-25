@@ -9,8 +9,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/RobYed/pr-pitcrew/actions/workflows/ci.yml"><img
-    src="https://github.com/RobYed/pr-pitcrew/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/deyai-labs/pr-pitcrew/actions/workflows/ci.yml"><img
+    src="https://github.com/deyai-labs/pr-pitcrew/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img
     src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
 </p>
@@ -84,7 +84,7 @@ concurrency:
 
 jobs:
   bug-review:
-    uses: RobYed/pr-pitcrew/.github/workflows/bug-review.yml@v1
+    uses: deyai-labs/pr-pitcrew/.github/workflows/bug-review.yml@v1
     secrets:
       api-key: ${{ secrets.PITCREW_LLM_API_KEY }}
 ```
@@ -148,7 +148,7 @@ See [`docs/threat-model.md`](docs/threat-model.md).
 decide when that happens, pin the commit instead and let Dependabot propose the bumps:
 
 ```yaml
-uses: RobYed/pr-pitcrew/.github/workflows/bug-review.yml@a1b2c3d4...  # v1.0.0
+uses: deyai-labs/pr-pitcrew/.github/workflows/bug-review.yml@a1b2c3d4...  # v1.0.0
 ```
 
 Both are supported. `@v1` is the convenient one, a SHA is the deliberate one.

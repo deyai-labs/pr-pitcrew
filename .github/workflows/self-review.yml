@@ -8,7 +8,7 @@ name: Self review
 # tried on real code before anybody else gets it.
 #
 # One honest limitation: a called workflow's `uses:` cannot be an expression, so
-# `bug-review.yml` reaches for `RobYed/pr-pitcrew/actions/agent@main` - the
+# `bug-review.yml` reaches for `deyai-labs/pr-pitcrew/actions/agent@main` - the
 # action as it is on the default branch, not as this pull request changes it.
 # A pull request that touches `actions/agent/action.yml` is therefore reviewed
 # by the old action. See CONTRIBUTING.md, "Changing the action itself".

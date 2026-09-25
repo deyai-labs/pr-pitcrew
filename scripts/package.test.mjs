@@ -322,7 +322,7 @@ describe('third-party actions', () => {
     for (const parts of files) {
       const text = read(...parts);
       for (const [, reference] of text.matchAll(/^\s*(?:-\s*)?uses:\s*(\S+)/gm)) {
-        if (reference.startsWith('./') || reference.startsWith('RobYed/pr-pitcrew/')) continue;
+        if (reference.startsWith('./') || reference.startsWith('deyai-labs/pr-pitcrew/')) continue;
         assert.match(
           reference,
           /@[0-9a-f]{40}$/,

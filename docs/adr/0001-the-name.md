@@ -32,14 +32,15 @@ ambiguous word. `-actions` would tie the name to GitHub; `-reviews` would bring 
 name is meant to avoid.
 
 Verified before deciding: `github.com/RobYed/pr-pitcrew` was free, and `pr-pitcrew` was unclaimed on
-the npm registry.
+the npm registry. The repository later moved to the `deyai-labs` organization, as
+`github.com/deyai-labs/pr-pitcrew`. The name did not change.
 
 Naming surfaces:
 
 | Surface | Value |
 | --- | --- |
 | repository, npm name | `pr-pitcrew` |
-| how it is used | `uses: RobYed/pr-pitcrew/.github/workflows/<agent>.yml@v1` |
+| how it is used | `uses: deyai-labs/pr-pitcrew/.github/workflows/<agent>.yml@v1` |
 | prose, README title | PR Pitcrew |
 | variables and secrets | `PITCREW_LLM_API_KEY`, `PITCREW_LLM_API_BASE_URL`, `PITCREW_LLM_API_MODEL`, `PITCREW_ACCEPTANCE_TARGET_URL`, … |
 | check names | `Pitcrew / Bug Review` |

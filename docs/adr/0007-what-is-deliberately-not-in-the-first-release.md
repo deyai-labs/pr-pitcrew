@@ -65,11 +65,11 @@ save a copy and paste.
 ## Consequences
 
 These are the roadmap, and they are filed as issues rather than left here, so that this record does
-not become a to-do list nobody rereads: [#1](https://github.com/RobYed/pr-pitcrew/issues/1) forks,
-[#2](https://github.com/RobYed/pr-pitcrew/issues/2) the writing lane,
-[#3](https://github.com/RobYed/pr-pitcrew/issues/3) prompt additions,
-[#4](https://github.com/RobYed/pr-pitcrew/issues/4) an end-to-end proof,
-[#5](https://github.com/RobYed/pr-pitcrew/issues/5) measured costs.
+not become a to-do list nobody rereads: [#1](https://github.com/deyai-labs/pr-pitcrew/issues/1) forks,
+[#2](https://github.com/deyai-labs/pr-pitcrew/issues/2) the writing lane,
+[#3](https://github.com/deyai-labs/pr-pitcrew/issues/3) prompt additions,
+[#4](https://github.com/deyai-labs/pr-pitcrew/issues/4) an end-to-end proof,
+[#5](https://github.com/deyai-labs/pr-pitcrew/issues/5) measured costs.
 
 The larger consequence is one the README states plainly: this is a package that reviews pull requests
 from people who can already push. That is a genuine and common case - it is exactly the case it was

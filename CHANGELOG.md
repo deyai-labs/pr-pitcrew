@@ -138,7 +138,7 @@ is no plan to remove it.
 Version `1.0.0` rather than `0.1.0`: the interface is the one that had been running in a
 private repository for weeks, and `@v1` is what the documentation references.
 
-[Unreleased]: https://github.com/RobYed/pr-pitcrew/compare/v1.2.0...HEAD
-[1.2.0]: https://github.com/RobYed/pr-pitcrew/compare/v1.1.0...v1.2.0
-[1.1.0]: https://github.com/RobYed/pr-pitcrew/compare/v1.0.0...v1.1.0
-[1.0.0]: https://github.com/RobYed/pr-pitcrew/releases/tag/v1.0.0
+[Unreleased]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/deyai-labs/pr-pitcrew/releases/tag/v1.0.0
