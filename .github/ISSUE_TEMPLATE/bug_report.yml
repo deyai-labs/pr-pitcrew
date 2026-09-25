@@ -19,7 +19,7 @@ body:
     attributes:
       label: Version pinned
       description: The ref in your `uses:` line - `@v1`, an exact tag, or a commit sha.
-      placeholder: RobYed/pr-pitcrew/.github/workflows/bug-review.yml@v1
+      placeholder: deyai-labs/pr-pitcrew/.github/workflows/bug-review.yml@v1
     validations:
       required: true
 

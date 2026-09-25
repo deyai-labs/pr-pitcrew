@@ -77,7 +77,7 @@ Three, one per agent. Each is called with `uses:` and takes its inputs and secre
 ```yaml
 jobs:
   bug-review:
-    uses: RobYed/pr-pitcrew/.github/workflows/bug-review.yml@v1
+    uses: deyai-labs/pr-pitcrew/.github/workflows/bug-review.yml@v1
     with:
       fail-on: medium
     secrets:

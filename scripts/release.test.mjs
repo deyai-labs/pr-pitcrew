@@ -33,24 +33,24 @@ jobs:
         with:
           fetch-depth: 0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
-      - uses: RobYed/pr-pitcrew/actions/agent@main
+      - uses: deyai-labs/pr-pitcrew/actions/agent@main
         with:
           agent: bug-review
-      - uses: RobYed/pr-pitcrew/actions/recorder@main
+      - uses: deyai-labs/pr-pitcrew/actions/recorder@main
       - uses: ./actions/agent
       - uses: docker://alpine@sha256:1234
 `;
 
 describe('selfReferences', () => {
   it('finds an action of this package and reports its path and ref', () => {
-    assert.deepEqual(selfReferences('uses: RobYed/pr-pitcrew/actions/agent@main'), [
-      { path: 'RobYed/pr-pitcrew/actions/agent', ref: 'main' },
+    assert.deepEqual(selfReferences('uses: deyai-labs/pr-pitcrew/actions/agent@main'), [
+      { path: 'deyai-labs/pr-pitcrew/actions/agent', ref: 'main' },
     ]);
   });
 
   it('finds a reusable workflow of this package, dots and all', () => {
-    assert.deepEqual(selfReferences('uses: RobYed/pr-pitcrew/.github/workflows/bug-review.yml@v1'), [
-      { path: 'RobYed/pr-pitcrew/.github/workflows/bug-review.yml', ref: 'v1' },
+    assert.deepEqual(selfReferences('uses: deyai-labs/pr-pitcrew/.github/workflows/bug-review.yml@v1'), [
+      { path: 'deyai-labs/pr-pitcrew/.github/workflows/bug-review.yml', ref: 'v1' },
     ]);
   });
 
@@ -69,8 +69,8 @@ describe('selfReferences', () => {
 
   it('finds every self-reference in a realistic workflow and nothing else', () => {
     assert.deepEqual(selfReferences(workflow), [
-      { path: 'RobYed/pr-pitcrew/actions/agent', ref: 'main' },
-      { path: 'RobYed/pr-pitcrew/actions/recorder', ref: 'main' },
+      { path: 'deyai-labs/pr-pitcrew/actions/agent', ref: 'main' },
+      { path: 'deyai-labs/pr-pitcrew/actions/recorder', ref: 'main' },
     ]);
   });
 
@@ -84,10 +84,10 @@ describe('retarget', () => {
   it('rewrites every self-reference to the given ref', () => {
     const tagged = retarget(workflow, 'v1.2.0');
     assert.deepEqual(selfReferences(tagged), [
-      { path: 'RobYed/pr-pitcrew/actions/agent', ref: 'v1.2.0' },
-      { path: 'RobYed/pr-pitcrew/actions/recorder', ref: 'v1.2.0' },
+      { path: 'deyai-labs/pr-pitcrew/actions/agent', ref: 'v1.2.0' },
+      { path: 'deyai-labs/pr-pitcrew/actions/recorder', ref: 'v1.2.0' },
     ]);
-    assert.ok(tagged.includes('uses: RobYed/pr-pitcrew/actions/agent@v1.2.0'));
+    assert.ok(tagged.includes('uses: deyai-labs/pr-pitcrew/actions/agent@v1.2.0'));
   });
 
   it('leaves third-party references exactly as they were', () => {
@@ -122,8 +122,8 @@ describe('retarget', () => {
 
   it('rewrites a reference that already carries a version', () => {
     assert.equal(
-      retarget('uses: RobYed/pr-pitcrew/.github/workflows/bug-review.yml@v1', 'v1.2.0'),
-      'uses: RobYed/pr-pitcrew/.github/workflows/bug-review.yml@v1.2.0',
+      retarget('uses: deyai-labs/pr-pitcrew/.github/workflows/bug-review.yml@v1', 'v1.2.0'),
+      'uses: deyai-labs/pr-pitcrew/.github/workflows/bug-review.yml@v1.2.0',
     );
   });
 });

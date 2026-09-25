@@ -34,7 +34,7 @@ inside a called workflow resolves against the runner's workspace - which holds t
 checkout, not this package. This was checked before the structure was built on it, because getting
 it wrong would have produced a package that works in its own repository and nowhere else.
 
-So the reference has to be fully qualified: `RobYed/pr-pitcrew/actions/agent@<ref>`. And a `uses:`
+So the reference has to be fully qualified: `deyai-labs/pr-pitcrew/actions/agent@<ref>`. And a `uses:`
 ref cannot be an expression, so it is a literal in a file - which means every release has to set it,
 and the day somebody forgets, a tag that says `v1.2.0` runs whatever is newest.
 

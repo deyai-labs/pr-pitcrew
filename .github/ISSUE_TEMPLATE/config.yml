@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
   - name: Question or idea
-    url: https://github.com/RobYed/pr-pitcrew/discussions
+    url: https://github.com/deyai-labs/pr-pitcrew/discussions
     about: Anything that is not a defect or a concrete proposal.
   - name: Documentation
-    url: https://github.com/RobYed/pr-pitcrew/tree/main/docs
+    url: https://github.com/deyai-labs/pr-pitcrew/tree/main/docs
     about: Threat model and the decisions behind how this works.
   - name: Security vulnerability
-    url: https://github.com/RobYed/pr-pitcrew/security/advisories/new
+    url: https://github.com/deyai-labs/pr-pitcrew/security/advisories/new
     about: Report privately. Do not open a public issue.

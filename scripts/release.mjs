@@ -6,7 +6,7 @@
  * The item that gets forgotten is this: a reusable workflow cannot reference
  * its own repository's action relatively. `uses: ./actions/agent` inside a
  * called workflow resolves against the *caller's* workspace, not against the
- * package - so the reference has to be fully qualified, `RobYed/pr-pitcrew/
+ * package - so the reference has to be fully qualified, `deyai-labs/pr-pitcrew/
  * actions/agent@<ref>`, and a ref cannot be an expression. Which means the
  * workflows carry a literal ref, and a tag whose workflows still say `@main`
  * would quietly run the newest code inside a version somebody pinned on
@@ -28,7 +28,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SELF = /(\bRobYed\/pr-pitcrew\/[A-Za-z0-9._\/-]+)@([A-Za-z0-9._-]+)/g;
+const SELF = /(\bdeyai-labs\/pr-pitcrew\/[A-Za-z0-9._\/-]+)@([A-Za-z0-9._-]+)/g;
 
 const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
 

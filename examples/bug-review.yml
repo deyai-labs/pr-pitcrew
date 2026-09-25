@@ -34,6 +34,6 @@ concurrency:
 
 jobs:
   bug-review:
-    uses: RobYed/pr-pitcrew/.github/workflows/bug-review.yml@v1
+    uses: deyai-labs/pr-pitcrew/.github/workflows/bug-review.yml@v1
     secrets:
       api-key: ${{ secrets.PITCREW_LLM_API_KEY }}

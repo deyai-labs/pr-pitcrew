@@ -4,9 +4,9 @@
   "description": "A pit crew for your pull requests: bug review, security review and a browser-driven acceptance test, as GitHub Actions you can pin.",
   "type": "module",
   "license": "MIT",
-  "repository": { "type": "git", "url": "git+https://github.com/RobYed/pr-pitcrew.git" },
-  "homepage": "https://github.com/RobYed/pr-pitcrew#readme",
-  "bugs": { "url": "https://github.com/RobYed/pr-pitcrew/issues" },
+  "repository": { "type": "git", "url": "git+https://github.com/deyai-labs/pr-pitcrew.git" },
+  "homepage": "https://github.com/deyai-labs/pr-pitcrew#readme",
+  "bugs": { "url": "https://github.com/deyai-labs/pr-pitcrew/issues" },
   "keywords": ["github-actions", "code-review", "ai-agents", "pull-request", "security-review", "opencode"],
   "engines": { "node": ">=20.10" },
   "scripts": {

@@ -177,7 +177,7 @@ jobs:
       # Both commits, looked up rather than read from the event, because an
       # `/acceptance` comment carries neither: an `issue_comment` knows the
       # issue, not the branch behind it.
-      - uses: RobYed/pr-pitcrew/actions/check-deployment@main
+      - uses: deyai-labs/pr-pitcrew/actions/check-deployment@main
         with:
           health-url: ${{ inputs.target-health-url || vars.PITCREW_ACCEPTANCE_TARGET_HEALTH_URL }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -231,14 +231,14 @@ jobs:
       # Provisioned above, proven here: this step resolves the driver and starts
       # a real browser with it before a model is called. A failure costs seconds
       # instead of half an hour of an agent improvising around a broken rig.
-      - uses: RobYed/pr-pitcrew/actions/check-browser@main
+      - uses: deyai-labs/pr-pitcrew/actions/check-browser@main
         with:
           playwright-image: ${{ inputs.playwright-image }}
           playwright-module: ${{ vars.PITCREW_PLAYWRIGHT_MODULE }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           pr-number: ${{ github.event.pull_request.number || github.event.issue.number }}
 
-      - uses: RobYed/pr-pitcrew/actions/agent@main
+      - uses: deyai-labs/pr-pitcrew/actions/agent@main
         with:
           agent: acceptance-test
           api-key: ${{ secrets.api-key }}
