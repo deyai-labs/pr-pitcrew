@@ -1,6 +1,6 @@
 {
   "name": "pr-pitcrew",
-  "version": "1.2.0",
+  "version": "1.2.2",
   "description": "A pit crew for your pull requests: bug review, security review and a browser-driven acceptance test, as GitHub Actions you can pin.",
   "type": "module",
   "license": "MIT",

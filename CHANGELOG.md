@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-09-25
+
+### Changed
+
+- **The repository moved to the `deyai-labs` organization.** The reusable workflows now call
+  their actions at `deyai-labs/pr-pitcrew/...`. Up to 1.2.1 they called `RobYed/pr-pitcrew/...`,
+  which works only through GitHub's redirect for the old path. Update your `uses:` lines to
+  `deyai-labs/pr-pitcrew/.github/workflows/<agent>.yml@v1`. The old path keeps working as long
+  as the redirect exists.
+
 ## [1.2.1] - 2026-09-09
 
 ### Fixed
@@ -138,7 +148,9 @@ is no plan to remove it.
 Version `1.0.0` rather than `0.1.0`: the interface is the one that had been running in a
 private repository for weeks, and `@v1` is what the documentation references.
 
-[Unreleased]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.2.2...HEAD
+[1.2.2]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.2.1...v1.2.2
+[1.2.1]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/deyai-labs/pr-pitcrew/releases/tag/v1.0.0
