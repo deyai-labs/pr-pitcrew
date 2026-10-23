@@ -17,14 +17,17 @@
  *
  *  * an added line, when the pull request diff adds the line with that number;
  *  * a removed line, when the pull request diff changes anything at the place
- *    of the run of changes the line belongs to.
+ *    of the run of changes the line belongs to, or removes the same text
+ *    anywhere in the file.
  *
- * Removed lines cannot be matched by text. The pull request diff removes the
- * base branch's version of a line, the incremental diff the version before the
- * merge, and when the base branch rewrote what the pull request deletes, the
- * two never agree. So a removal goes by place, and errs towards being shown:
- * a line too many in the review costs little, a dropped change of the pull
- * request is one nobody reviews.
+ * Neither rule is enough alone. The pull request diff removes the base
+ * branch's version of a line, the incremental diff the version before the
+ * merge: when the base branch rewrote what the pull request deletes, the text
+ * never agrees, and only the place does. When the base branch moved the line
+ * the pull request deletes, the two diffs remove it at different places, and
+ * only the text agrees. Either one keeps the removal. That errs towards being
+ * shown: a line too many in the review costs little, a dropped change of the
+ * pull request is one nobody reviews.
  *
  * Everything else the merge brought in becomes context (an added line) or goes
  * (a removed line), and a hunk with no change left is dropped. The left-hand
@@ -108,12 +111,14 @@ function firstOld(hunk) {
 }
 
 /**
- * The changes of one file: the right-hand numbers of the lines it adds, and
- * every right-hand place at which it adds or removes something.
+ * The changes of one file: the right-hand numbers of the lines it adds, every
+ * right-hand place at which it adds or removes something, and the text of
+ * every line it removes.
  */
 function indexChanges(file) {
   const added = new Set();
   const changedAt = new Set();
+  const removed = new Set();
   for (const hunk of file.hunks) {
     let newNo = firstNew(hunk);
     for (const line of hunk.lines) {
@@ -121,10 +126,11 @@ function indexChanges(file) {
       if (kind === '\\') continue;
       if (kind === '+') added.add(newNo);
       if (kind === '+' || kind === '-') changedAt.add(newNo);
+      if (kind === '-') removed.add(line.slice(1));
       if (kind !== '-') newNo += 1;
     }
   }
-  return { added, changedAt };
+  return { added, changedAt, removed };
 }
 
 /**
@@ -192,7 +198,7 @@ function keepOwned(hunk, owned, state) {
       }
       newNo += 1;
     } else if (kind === '-') {
-      if (changedWithin(owned, spans[index])) {
+      if (owned.removed.has(text) || changedWithin(owned, spans[index])) {
         last = { kind: '-', text, oldNo, newNo };
         oldNo += 1;
       } else {

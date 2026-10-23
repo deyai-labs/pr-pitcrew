@@ -222,6 +222,37 @@ index 8a1218a..0e75782 100644
 +pr
 `;
 
+// main moves Z two lines down and is merged in; the pull request then deletes
+// Z. The two diffs remove it at different places, and the text is what agrees.
+const MOVED_DELETE_INCREMENTAL = `diff --git a/f.txt b/f.txt
+index 99396fe..531e93d 100644
+--- a/f.txt
++++ b/f.txt
+@@ -1,4 +1,3 @@
+ A
+-Z
+ C
+ B
+`;
+
+const MOVED_DELETE_PULL = `diff --git a/f.txt b/f.txt
+index 3dcdbbb..531e93d 100644
+--- a/f.txt
++++ b/f.txt
+@@ -1,4 +1,3 @@
+ A
+ C
+-Z
+ B
+diff --git a/p.txt b/p.txt
+new file mode 100644
+index 0000000..1a9cc2b
+--- /dev/null
++++ b/p.txt
+@@ -0,0 +1 @@
++p
+`;
+
 // notes.txt ends without a newline. main deletes its last line and is merged
 // in; the pull request then edits the line before it.
 const NO_EOL_INCREMENTAL = `diff --git a/notes.txt b/notes.txt
@@ -313,6 +344,11 @@ describe('restrictToPullRequest', () => {
     const { text } = restrictToPullRequest(REWRITTEN_DELETE_INCREMENTAL, REWRITTEN_DELETE_PULL);
     assert.deepEqual(parseDiff(text).map(file => file.key), ['notes.txt']);
     assert.deepEqual(changes(text), ['-alpha', '-beta', '-gamma']);
+  });
+
+  it('keeps a deletion of the pull request when the base branch moved the deleted line', () => {
+    const { text } = restrictToPullRequest(MOVED_DELETE_INCREMENTAL, MOVED_DELETE_PULL);
+    assert.deepEqual(changes(text), ['-Z']);
   });
 
   it('keeps a no-newline marker with the line it belongs to', () => {

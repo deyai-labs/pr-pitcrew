@@ -306,9 +306,10 @@ the last review, the range carries everything the merge brought along. `scripts/
 cuts the incremental diff down to the changes the pull request diff also makes. Both diffs end at
 the same commit, so an added line counts when the pull request diff adds the line with the same
 number. A removed line counts when the pull request diff changes anything at the place of the run
-of changes it belongs to: by place, not by text, because when the base branch rewrote what the pull
-request deletes, the two diffs remove different text. That errs towards showing a line too many,
-never towards hiding a change of the pull request. Lines from the base branch become context, and
+of changes it belongs to, or removes the same text anywhere in the file. Both rules are needed: when
+the base branch rewrote what the pull request deletes, only the place agrees, and when the base
+branch moved it, only the text agrees. That errs towards showing a line too many, never towards
+hiding a change of the pull request. Lines from the base branch become context, and
 files only the base branch changed drop out.
 The scope line then says that changes from the base branch are left out.
 
