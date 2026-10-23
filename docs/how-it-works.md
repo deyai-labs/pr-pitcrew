@@ -317,6 +317,14 @@ that green check and reviews from there. If the last review failed the gate, its
 stand, and a merge must not turn the check green. Then the whole pull request is the subject: that
 diff holds only what the pull request adds to its base branch.
 
+Both the cut and the skip trust the pull request diff, and GitHub computes it against the base
+branch the pull request names *now*. Its author can change that base, and a change of base starts no
+run. Switch the base to another branch, merge that branch in, and its content is in no pull request
+diff: the cut would drop it, the skip would pass it green, and the base goes back to `main` with a
+green check on the head. So `fetch-diff.mjs` reads the pull request's events first. If the base
+changed after the review this run starts from, or the events cannot be read, neither applies: the
+subject is every change since that review, merged ones included.
+
 The whole diff also comes back when the incremental one cannot be trusted for the older reasons: a
 force-push leaves `before` unreachable, the pull request moved on to a newer head while the run
 started, and a comment trigger has no `before` at all, which is what makes `/review` the way to ask

@@ -33,6 +33,15 @@
  * green; then the whole pull request is reviewed, whose diff only ever holds
  * what the pull request adds to its base branch.
  *
+ * Both rest on the pull request diff, and GitHub computes that against the base
+ * branch the pull request names *now*. Its author can change it, and a change
+ * of base starts no run. Switch the base to another branch, merge that branch
+ * in, and its content is in no pull request diff: the cut would drop it and the
+ * skip would pass it green, then the base goes back to `main` with a green
+ * check on the head. So when the base changed since the review this run starts
+ * from, or the lookup fails, neither applies: every change since that review
+ * is reviewed, merged ones included, as before the cut existed.
+ *
  * Falls back to the full diff whenever the incremental one cannot be trusted:
  * a force-push leaves `before` unreachable, a comment trigger has no `before`
  * at all, the walk finds no published review, and a failed lookup must not
@@ -62,8 +71,8 @@ const LIMIT = 1024 * 1024;
 const EMPTY_SHA = '0000000000000000000000000000000000000000';
 const MAX_WALK = 100;
 
-// Commits whose check of this agent ended green, filled in by the lookups.
-const cleanReviews = new Set();
+// The published checks of this agent, by commit, filled in by the lookups.
+const reviews = new Map();
 
 async function diff(path) {
   const response = await fetch(`${api}${path}`, {
@@ -213,14 +222,41 @@ async function statusOfCommit(sha, checkName) {
   if (runs === null) return 'failed';
   const check = pickAgentCheck(runs, checkName);
   if (!check) return 'unpublished';
-  if (check.conclusion === 'success') {
-    cleanReviews.add(sha);
+  const review = { clean: check.conclusion === 'success', startedAt: check.started_at ?? '' };
+  if (review.clean) {
+    reviews.set(sha, review);
     return 'published';
   }
   if (check.conclusion !== 'failure') return 'unpublished';
   const annotations = await listAnnotations(check.id);
   if (annotations === null) return 'failed';
-  return checkPublishedReport(check, annotations) ? 'published' : 'unpublished';
+  if (!checkPublishedReport(check, annotations)) return 'unpublished';
+  reviews.set(sha, review);
+  return 'published';
+}
+
+/**
+ * Whether the events of a pull request change its base branch at or after
+ * `since`. No time to compare against counts as a change: that is the side
+ * where nothing is left out of a review.
+ */
+export function baseChangedSince(events, since) {
+  if (!since) return true;
+  return (events ?? []).some(
+    event => event?.event === 'base_ref_changed' && String(event.created_at ?? '') >= since,
+  );
+}
+
+/** True, false, or null when the events could not be read. */
+async function baseMovedSince(since) {
+  const events = [];
+  for (let page = 1; page <= 10; page++) {
+    const body = await jsonGet(`/repos/${repository}/issues/${prNumber}/events?per_page=100&page=${page}`);
+    if (body === null || !Array.isArray(body)) return null;
+    events.push(...body);
+    if (body.length < 100) break;
+  }
+  return baseChangedSince(events, since);
 }
 
 /**
@@ -298,6 +334,15 @@ async function main() {
   if (before && after && before !== after && before !== EMPTY_SHA) {
     const base = await resolveCompareBase(before, checkName);
     if (base) {
+      const review = reviews.get(base);
+      const baseMoved = await baseMovedSince(review?.startedAt);
+      if (baseMoved !== false) {
+        console.log(
+          baseMoved === null
+            ? 'Could not read the events of this pull request; reviewing every change since the last review, merged ones included.'
+            : `The base branch of this pull request changed since the review of ${base.slice(0, 7)}; reviewing every change since then, merged ones included.`,
+        );
+      }
       text = await diff(`/repos/${repository}/compare/${base}...${after}`);
       if (text === null) {
         // Force-pushed, or the commit was garbage collected: `before` no longer
@@ -308,6 +353,9 @@ async function main() {
         console.log('The new commits change no files.');
         nothingNew = true;
         text = null;
+      } else if (baseMoved !== false) {
+        // The pull request diff cannot tell what the merge brought in.
+        scope = incrementalScope(base, after);
       } else {
         pullText = await pullDiffAt(after);
         if (pullText === null) {
@@ -330,11 +378,15 @@ async function main() {
       }
 
       if (nothingNew) {
-        if (cleanReviews.has(base)) {
+        if (baseMoved === false && review?.clean) {
           skip(base, after);
           return;
         }
-        console.log(`The review of ${base.slice(0, 7)} did not pass, so its findings still stand; reviewing the whole pull request.`);
+        if (baseMoved === false) {
+          console.log(`The review of ${base.slice(0, 7)} did not pass, so its findings still stand; reviewing the whole pull request.`);
+        } else {
+          console.log('Reviewing the whole pull request.');
+        }
       }
     }
   }

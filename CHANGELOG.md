@@ -19,7 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A merge of the base branch with no work of its own runs no review.** When the last review
   of the agent was green, the agent does not start, nothing is posted, and the check stays
   green. When the last review failed the gate, the whole pull request is reviewed, so a merge
-  cannot turn a red check green. See [`docs/how-it-works.md`](docs/how-it-works.md),
+  cannot turn a red check green. When the base branch of the pull request changed since the
+  last review, neither the cut nor the skip applies: every change since that review is
+  reviewed, merged ones included. See [`docs/how-it-works.md`](docs/how-it-works.md),
   "Reviewing the same pull request twice".
 
 ## [1.3.0] - 2026-09-28
