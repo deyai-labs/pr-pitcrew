@@ -187,6 +187,72 @@ index 4ca0d40..a86ff28 100644
  30
 `;
 
+// main rewrites notes.txt and is merged in; the pull request then deletes the
+// file. The two diffs remove different text, and the deletion is still the
+// pull request's own.
+const REWRITTEN_DELETE_INCREMENTAL = `diff --git a/notes.txt b/notes.txt
+deleted file mode 100644
+index 85c3040..0000000
+--- a/notes.txt
++++ /dev/null
+@@ -1,3 +0,0 @@
+-alpha
+-beta
+-gamma
+`;
+
+const REWRITTEN_DELETE_PULL = `diff --git a/notes.txt b/notes.txt
+deleted file mode 100644
+index 94ebaf9..0000000
+--- a/notes.txt
++++ /dev/null
+@@ -1,4 +0,0 @@
+-1
+-2
+-3
+-4
+diff --git a/other.txt b/other.txt
+index 8a1218a..0e75782 100644
+--- a/other.txt
++++ b/other.txt
+@@ -3,3 +3,4 @@
+ 3
+ 4
+ 5
++pr
+`;
+
+// notes.txt ends without a newline. main deletes its last line and is merged
+// in; the pull request then edits the line before it.
+const NO_EOL_INCREMENTAL = `diff --git a/notes.txt b/notes.txt
+index 3328991..7061c57 100644
+--- a/notes.txt
++++ b/notes.txt
+@@ -1,3 +1,2 @@
+ x
+-y
+-b
+\\ No newline at end of file
++Y
+`;
+
+const NO_EOL_PULL = `diff --git a/notes.txt b/notes.txt
+index b77b4eb..7061c57 100644
+--- a/notes.txt
++++ b/notes.txt
+@@ -1,2 +1,2 @@
+ x
+-y
++Y
+diff --git a/p.txt b/p.txt
+new file mode 100644
+index 0000000..1a9cc2b
+--- /dev/null
++++ b/p.txt
+@@ -0,0 +1 @@
++p
+`;
+
 // main edits line 15 and is merged in; the pull request adds nothing after.
 const PURE_MERGE_INCREMENTAL = `diff --git a/s.txt b/s.txt
 index d1810ac..34689b6 100644
@@ -234,17 +300,34 @@ describe('restrictToPullRequest', () => {
   it("turns the base branch's lines into context when they share a hunk", () => {
     const { text, leftOut } = restrictToPullRequest(INTERLEAVED_INCREMENTAL, INTERLEAVED_PULL);
     assert.equal(leftOut, true);
-    assert.deepEqual(changes(text), ['-20', '+twenty-pr', '-23', '+23-pr', '-27']);
+    // -22 is the base branch's, shown because it sits in the same run as the
+    // pull request's -23: a removal goes by place, and errs towards being shown.
+    assert.deepEqual(changes(text), ['-20', '+twenty-pr', '-22', '-23', '+23-pr', '-27']);
     assert.match(text, /^ 22-main$/m);
     assert.match(text, /^ 22b-main$/m);
     assert.doesNotMatch(text, /^-25$/m);
     assert.doesNotMatch(text, /no-eol|No newline/);
   });
 
+  it('keeps a deletion of the pull request when the base branch rewrote the deleted lines', () => {
+    const { text } = restrictToPullRequest(REWRITTEN_DELETE_INCREMENTAL, REWRITTEN_DELETE_PULL);
+    assert.deepEqual(parseDiff(text).map(file => file.key), ['notes.txt']);
+    assert.deepEqual(changes(text), ['-alpha', '-beta', '-gamma']);
+  });
+
+  it('keeps a no-newline marker with the line it belongs to', () => {
+    const { text } = restrictToPullRequest(NO_EOL_INCREMENTAL, NO_EOL_PULL);
+    const lines = text.split('\n');
+    const marker = lines.indexOf('\\ No newline at end of file');
+    assert.equal(lines[marker - 1], '-b');
+    assert.deepEqual(changes(text), ['-y', '-b', '+Y']);
+  });
+
   it('writes hunk headers whose counts match their lines', () => {
     for (const [incremental, pull] of [
       [MERGE_INCREMENTAL, MERGE_PULL],
       [INTERLEAVED_INCREMENTAL, INTERLEAVED_PULL],
+      [NO_EOL_INCREMENTAL, NO_EOL_PULL],
     ]) {
       for (const file of parseDiff(restrictToPullRequest(incremental, pull).text)) {
         for (const hunk of file.hunks) {

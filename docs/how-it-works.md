@@ -305,8 +305,11 @@ That range can hold code the pull request did not write. When the base branch wa
 the last review, the range carries everything the merge brought along. `scripts/own-changes.mjs`
 cuts the incremental diff down to the changes the pull request diff also makes. Both diffs end at
 the same commit, so an added line counts when the pull request diff adds the line with the same
-number, and a removed line counts when the pull request diff removes the same text in the same
-hunk. Lines from the base branch become context, and files only the base branch changed drop out.
+number. A removed line counts when the pull request diff changes anything at the place of the run
+of changes it belongs to: by place, not by text, because when the base branch rewrote what the pull
+request deletes, the two diffs remove different text. That errs towards showing a line too many,
+never towards hiding a change of the pull request. Lines from the base branch become context, and
+files only the base branch changed drop out.
 The scope line then says that changes from the base branch are left out.
 
 A push that leaves nothing - a merge of the base branch with no work of the pull request's own, or a

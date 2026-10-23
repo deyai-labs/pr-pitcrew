@@ -16,8 +16,15 @@
  * same change:
  *
  *  * an added line, when the pull request diff adds the line with that number;
- *  * a removed line, when the pull request diff removes the same text within
- *    the same stretch of the file.
+ *  * a removed line, when the pull request diff changes anything at the place
+ *    of the run of changes the line belongs to.
+ *
+ * Removed lines cannot be matched by text. The pull request diff removes the
+ * base branch's version of a line, the incremental diff the version before the
+ * merge, and when the base branch rewrote what the pull request deletes, the
+ * two never agree. So a removal goes by place, and errs towards being shown:
+ * a line too many in the review costs little, a dropped change of the pull
+ * request is one nobody reviews.
  *
  * Everything else the merge brought in becomes context (an added line) or goes
  * (a removed line), and a hunk with no change left is dropped. The left-hand
@@ -101,44 +108,56 @@ function firstOld(hunk) {
 }
 
 /**
- * The changes of one file. Added lines by right-hand number; removed lines by
- * text, each with the right-hand positions it was removed at.
+ * The changes of one file: the right-hand numbers of the lines it adds, and
+ * every right-hand place at which it adds or removes something.
  */
 function indexChanges(file) {
   const added = new Set();
-  const removed = new Map();
+  const changedAt = new Set();
   for (const hunk of file.hunks) {
     let newNo = firstNew(hunk);
     for (const line of hunk.lines) {
       const kind = line[0];
       if (kind === '\\') continue;
       if (kind === '+') added.add(newNo);
-      else if (kind === '-') {
-        const text = line.slice(1);
-        if (!removed.has(text)) removed.set(text, []);
-        removed.get(text).push(newNo);
-      }
+      if (kind === '+' || kind === '-') changedAt.add(newNo);
       if (kind !== '-') newNo += 1;
     }
   }
-  return { added, removed };
+  return { added, changedAt };
 }
 
 /**
- * Whether the pull request removes `text` where this hunk removes it, and if
- * so, use that removal up. Where exactly a removed line sits depends on how
- * each diff lined up the lines around it: `-22 -23 +22' +23'` and `-23 +23'`
- * say the same about line 23. So the position counts if it falls inside the
- * hunk's right-hand span, the exact one first.
+ * For each line of a hunk, the right-hand span of the run of changes it
+ * belongs to: from where the run starts to where the next unchanged line sits.
  */
-function takeRemoval(owned, text, at, low, high) {
-  const positions = owned.removed.get(text);
-  if (!positions) return false;
-  let index = positions.indexOf(at);
-  if (index === -1) index = positions.findIndex(position => position >= low && position <= high);
-  if (index === -1) return false;
-  positions.splice(index, 1);
-  return true;
+function changeRuns(hunk) {
+  const spans = [];
+  let newNo = firstNew(hunk);
+  let run = null;
+  for (const line of hunk.lines) {
+    const kind = line[0];
+    if (kind === '\\') {
+      spans.push(null);
+      continue;
+    }
+    if (kind === ' ') {
+      run = null;
+      spans.push(null);
+      newNo += 1;
+      continue;
+    }
+    if (!run) run = { low: newNo, high: newNo };
+    spans.push(run);
+    if (kind === '+') newNo += 1;
+    run.high = newNo;
+  }
+  return spans;
+}
+
+function changedWithin(owned, span) {
+  for (let at = span.low; at <= span.high; at++) if (owned.changedAt.has(at)) return true;
+  return false;
 }
 
 /**
@@ -151,11 +170,10 @@ function keepOwned(hunk, owned, state) {
   const rows = [];
   let oldNo = firstOld(hunk) + state.shift;
   let newNo = firstNew(hunk);
-  const low = newNo;
-  const high = newNo + hunk.newCount;
+  const spans = changeRuns(hunk);
   let last = null;
 
-  for (const line of hunk.lines) {
+  for (const [index, line] of hunk.lines.entries()) {
     const kind = line[0];
     const text = line.slice(1);
     if (kind === '\\') {
@@ -174,7 +192,7 @@ function keepOwned(hunk, owned, state) {
       }
       newNo += 1;
     } else if (kind === '-') {
-      if (takeRemoval(owned, text, newNo, low, high)) {
+      if (changedWithin(owned, spans[index])) {
         last = { kind: '-', text, oldNo, newNo };
         oldNo += 1;
       } else {
