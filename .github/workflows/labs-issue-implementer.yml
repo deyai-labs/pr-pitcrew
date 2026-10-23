@@ -1,0 +1,345 @@
+name: Pitcrew Labs Issue Implementer
+
+# An experiment, not part of a release: an agent that implements an assigned
+# issue, opens a pull request, and addresses the comments on it - from people
+# and from the review agents. See labs/issue-implementer/README.md.
+#
+# Three jobs, in two lanes (ADR 7, "Agents that write"):
+#
+#  1. `context`, on a hosted runner: is there work? Most events end here.
+#  2. `implement`, on the runner that reaches the model: the agent edits the
+#     checkout and runs a shell. The job has `contents: read` and no write
+#     token. It hands on a patch and a summary, nothing else.
+#  3. `publish`, on a hosted runner: holds the write token and no model key.
+#     Applies the patch, pushes, opens the pull request or comments.
+
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        description: >-
+          Runner for the agent - one label, or a JSON array of labels. It must
+          reach the model endpoint.
+        type: string
+        required: false
+        default: ubuntu-latest
+      timeout-minutes:
+        description: Time for the agent's job. A local model is slow; give it hours, not minutes.
+        type: number
+        required: false
+        default: 180
+      reasoning-effort:
+        description: Sent to the endpoint as `reasoning_effort`. Empty leaves the endpoint's default.
+        type: string
+        required: false
+        default: high
+      max-auto-rounds:
+        description: Rounds in a row that only review bots may ask for. A comment by a person resets the count.
+        type: number
+        required: false
+        default: 3
+      output-language:
+        description: Language of the summaries.
+        type: string
+        required: false
+        default: English
+      harness-ref:
+        description: Ref of deyai-labs/pr-pitcrew to take the scripts and the prompt from.
+        type: string
+        required: false
+        default: main
+    secrets:
+      api-key:
+        description: Key for the OpenAI-compatible endpoint in PITCREW_IMPLEMENTER_BASE_URL.
+        required: true
+      app-private-key:
+        description: Private key of the GitHub App in PITCREW_IMPLEMENTER_APP_ID. Either this or push-token.
+        required: false
+      push-token:
+        description: Token of a user account that pushes and opens pull requests. Either this or the app.
+        required: false
+
+# One round per issue or pull request at a time. Queued, not cancelled: a
+# round that is half done is worth finishing. GitHub keeps one pending run per
+# group; that is enough, because a round handles all open feedback, not only
+# the event that started it.
+concurrency:
+  group: pitcrew-implementer-${{ github.event.issue.number || github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.head_branch || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  context:
+    name: Implementer / Context
+    if: >-
+      (github.event_name == 'issues' &&
+       github.event.action == 'assigned' &&
+       vars.PITCREW_IMPLEMENTER_ASSIGNEE != '' &&
+       github.event.assignee.login == vars.PITCREW_IMPLEMENTER_ASSIGNEE) ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request != null) ||
+      (github.event_name == 'pull_request_review' &&
+       startsWith(github.event.pull_request.head.ref, 'pitcrew/issue-') &&
+       github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.event == 'pull_request' &&
+       startsWith(github.event.workflow_run.head_branch, 'pitcrew/issue-') &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    outputs:
+      mode: ${{ steps.context.outputs.mode }}
+      issue: ${{ steps.context.outputs.issue }}
+      pr: ${{ steps.context.outputs.pr }}
+      branch: ${{ steps.context.outputs.branch }}
+      base-sha: ${{ steps.context.outputs.base-sha }}
+      since: ${{ steps.context.outputs.since }}
+      prev-since: ${{ steps.context.outputs.prev-since }}
+      trigger: ${{ steps.context.outputs.trigger }}
+      round: ${{ steps.context.outputs.round }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: deyai-labs/pr-pitcrew
+          ref: ${{ inputs.harness-ref }}
+          path: harness
+          persist-credentials: false
+
+      - name: Find open work
+        id: context
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TASK_FILE: ${{ runner.temp }}/task/task.md
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ASSIGNEE: ${{ vars.PITCREW_IMPLEMENTER_ASSIGNEE }}
+          MAX_AUTO_ROUNDS: ${{ inputs.max-auto-rounds }}
+        run: |
+          mkdir -p "$(dirname "$TASK_FILE")"
+          node harness/labs/issue-implementer/scripts/context.mjs
+
+      - if: steps.context.outputs.mode != 'none'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: implementer-task
+          path: ${{ runner.temp }}/task/task.md
+          overwrite: true
+          retention-days: 7
+
+  implement:
+    name: Implementer / Agent
+    needs: context
+    if: needs.context.outputs.mode == 'issue' || needs.context.outputs.mode == 'feedback'
+    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    # Read, and nothing else. The agent has a shell, and whatever token this job
+    # holds, the agent can reach. The push happens in `publish`.
+    permissions:
+      contents: read
+    env:
+      BASE_SHA: ${{ needs.context.outputs.base-sha }}
+      TASK_FILE: ${{ github.workspace }}/.pitcrew-run/task.md
+      SUMMARY_FILE: ${{ github.workspace }}/.pitcrew-run/summary.md
+      OUTPUT_LANGUAGE: ${{ inputs.output-language }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.context.outputs.base-sha }}
+          fetch-depth: 0
+          # The agent's shell could read a token left in .git/config.
+          persist-credentials: false
+
+      # From the default branch of the package, never from the branch the agent
+      # works on - that branch is the agent's own earlier output. Moved out of
+      # the workspace so `git add -A` does not take it along.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: deyai-labs/pr-pitcrew
+          ref: ${{ inputs.harness-ref }}
+          path: .pitcrew-harness
+          persist-credentials: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: implementer-task
+          path: .pitcrew-run
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Prepare the workspace
+        env:
+          TIMEOUT_MINUTES: ${{ inputs.timeout-minutes }}
+        run: |
+          set -euo pipefail
+          # Paths under RUNNER_TEMP, which a job-level `env:` cannot name.
+          HARNESS="$RUNNER_TEMP/harness"
+          RESULT_DIR="$RUNNER_TEMP/result"
+          printf 'HARNESS=%s\nRESULT_DIR=%s\n' "$HARNESS" "$RESULT_DIR" >> "$GITHUB_ENV"
+          mv .pitcrew-harness "$HARNESS"
+          mkdir -p "$RESULT_DIR"
+          mkdir -p .git/info
+          echo '.pitcrew-run/' >> .git/info/exclude
+          # A commit needs an identity, even one that never leaves the runner;
+          # some test suites commit in a scratch repository.
+          git config --global user.name 'pitcrew-implementer'
+          git config --global user.email 'pitcrew-implementer@users.noreply.github.com'
+
+          # The agent gets a deadline, and the runtime is stopped five minutes
+          # after it. Ten more minutes remain for the patch and the upload.
+          budget=$(( TIMEOUT_MINUTES - 15 ))
+          if [ "$budget" -lt 5 ]; then budget=5; fi
+          {
+            echo "DEADLINE=$(date -u -d "+$budget minutes" '+%Y-%m-%dT%H:%M:%SZ')"
+            echo "AGENT_TIMEOUT=$(( (budget + 5) * 60 ))"
+          } >> "$GITHUB_ENV"
+          echo "The agent has $budget minutes."
+
+      - name: Build the configuration and the prompt
+        id: config
+        env:
+          MODEL: ${{ vars.PITCREW_IMPLEMENTER_MODEL }}
+          REASONING_EFFORT: ${{ inputs.reasoning-effort }}
+          CONTEXT_LIMIT: ${{ vars.PITCREW_IMPLEMENTER_CONTEXT_LIMIT }}
+          OUTPUT_LIMIT: ${{ vars.PITCREW_IMPLEMENTER_OUTPUT_LIMIT }}
+          CONFIG_OUT: ${{ runner.temp }}/opencode.json
+          MODEL_OUT: ${{ runner.temp }}/model.txt
+          PROMPT_OUT: ${{ runner.temp }}/prompt.md
+        run: |
+          node "$HARNESS/labs/issue-implementer/scripts/config.mjs"
+          echo "model=$(cat "$MODEL_OUT")" >> "$GITHUB_OUTPUT"
+
+      - name: Install the OpenCode runtime
+        env:
+          VERSION: '1.18.18'
+        run: |
+          set -euo pipefail
+          curl -fsSL https://opencode.ai/install | bash
+          "$HOME/.opencode/bin/opencode" --version
+
+      - name: Run the agent
+        env:
+          PITCREW_LLM_API_KEY: ${{ secrets.api-key }}
+          PITCREW_LLM_API_BASE_URL: ${{ vars.PITCREW_IMPLEMENTER_BASE_URL }}
+          OPENCODE_DISABLE_PROJECT_CONFIG: '1'
+          MODEL: ${{ steps.config.outputs.model }}
+        run: |
+          set -uo pipefail
+          if [ -z "$PITCREW_LLM_API_BASE_URL" ]; then
+            echo '::error::Set the repository variable PITCREW_IMPLEMENTER_BASE_URL to the endpoint, e.g. http://100.120.146.19:1234/v1.'
+            exit 1
+          fi
+          OPENCODE_CONFIG_CONTENT="$(cat "$RUNNER_TEMP/opencode.json")"
+          export OPENCODE_CONFIG_CONTENT
+          status=0
+          timeout --signal=INT --kill-after=30s "$AGENT_TIMEOUT" \
+            "$HOME/.opencode/bin/opencode" run --agent issue-implementer --model "$MODEL" \
+            < "$RUNNER_TEMP/prompt.md" || status=$?
+          # 124 is the deadline. What the agent has done so far is still handed
+          # on, marked as stopped; the next round can finish it.
+          case "$status" in
+            0) echo ok > "$RESULT_DIR/status" ;;
+            124) echo stopped > "$RESULT_DIR/status"
+                 echo '::warning::The agent ran out of time. Its work so far is handed on.' ;;
+            *) exit "$status" ;;
+          esac
+
+      - name: Hand on the patch
+        run: |
+          set -euo pipefail
+          git add -A
+          # Against the commit the round started from, so a commit the agent
+          # made despite its permissions is part of the patch, not lost.
+          git diff --cached --binary "$BASE_SHA" > "$RESULT_DIR/patch.diff"
+          git diff --cached --stat "$BASE_SHA"
+          if [ -f "$SUMMARY_FILE" ]; then cp "$SUMMARY_FILE" "$RESULT_DIR/summary.md"; fi
+
+      - name: Publish the agent's steps
+        if: ${{ !cancelled() }}
+        env:
+          TRANSCRIPT_TITLE: Issue implementer
+          OPENCODE_DISABLE_PROJECT_CONFIG: '1'
+        run: node "$HARNESS/scripts/publish-transcript.mjs"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: implementer-result
+          path: ${{ runner.temp }}/result
+          overwrite: true
+          retention-days: 7
+
+  publish:
+    name: Implementer / Publish
+    needs: [context, implement]
+    if: >-
+      !cancelled() &&
+      (needs.context.outputs.mode == 'issue' || needs.context.outputs.mode == 'feedback')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # For the failure notice only; see publish.mjs. The push uses the app token
+    # or push-token.
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Mint a GitHub App token
+        id: app
+        if: vars.PITCREW_IMPLEMENTER_APP_ID != ''
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ vars.PITCREW_IMPLEMENTER_APP_ID }}
+          private-key: ${{ secrets.app-private-key }}
+
+      - name: Check for a write token
+        env:
+          TOKEN: ${{ steps.app.outputs.token || secrets.push-token }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo '::error::No write token. Set PITCREW_IMPLEMENTER_APP_ID and pass app-private-key, or pass push-token. The workflow token cannot be used: its pushes start no workflow, so no review would run.'
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.context.outputs.base-sha }}
+          fetch-depth: 0
+          token: ${{ steps.app.outputs.token || secrets.push-token }}
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: deyai-labs/pr-pitcrew
+          ref: ${{ inputs.harness-ref }}
+          path: .pitcrew-harness
+          persist-credentials: false
+
+      - name: Move the harness out of the checkout
+        run: mv .pitcrew-harness "$RUNNER_TEMP/harness"
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: needs.implement.result == 'success'
+        with:
+          name: implementer-result
+          path: ${{ runner.temp }}/result
+
+      - name: Push and comment
+        env:
+          GITHUB_TOKEN: ${{ steps.app.outputs.token || secrets.push-token }}
+          NOTICE_TOKEN: ${{ github.token }}
+          APP_SLUG: ${{ steps.app.outputs.app-slug }}
+          MODE: ${{ needs.context.outputs.mode }}
+          ISSUE: ${{ needs.context.outputs.issue }}
+          PR: ${{ needs.context.outputs.pr }}
+          BRANCH: ${{ needs.context.outputs.branch }}
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
+          SINCE: ${{ needs.context.outputs.since }}
+          PREV_SINCE: ${{ needs.context.outputs.prev-since }}
+          TRIGGER: ${{ needs.context.outputs.trigger }}
+          ROUND: ${{ needs.context.outputs.round }}
+          RESULT_DIR: ${{ runner.temp }}/result
+          IMPLEMENT_RESULT: ${{ needs.implement.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node "$RUNNER_TEMP/harness/labs/issue-implementer/scripts/publish.mjs"
