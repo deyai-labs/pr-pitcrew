@@ -70,6 +70,7 @@ const token = process.env.GITHUB_TOKEN;
 const LIMIT = 1024 * 1024;
 const EMPTY_SHA = '0000000000000000000000000000000000000000';
 const MAX_WALK = 100;
+const MAX_EVENT_PAGES = 10;
 
 // The published checks of this agent, by commit, filled in by the lookups.
 const reviews = new Map();
@@ -247,16 +248,21 @@ export function baseChangedSince(events, since) {
   );
 }
 
-/** True, false, or null when the events could not be read. */
+/**
+ * True, false, or null when the events could not be read in full. A list cut
+ * off at the page limit counts as unread: the events come oldest first, so the
+ * change of base would be among the ones left out, and anyone can add events
+ * to a pull request by mentioning it.
+ */
 async function baseMovedSince(since) {
   const events = [];
-  for (let page = 1; page <= 10; page++) {
+  for (let page = 1; page <= MAX_EVENT_PAGES; page++) {
     const body = await jsonGet(`/repos/${repository}/issues/${prNumber}/events?per_page=100&page=${page}`);
     if (body === null || !Array.isArray(body)) return null;
     events.push(...body);
-    if (body.length < 100) break;
+    if (body.length < 100) return baseChangedSince(events, since);
   }
-  return baseChangedSince(events, since);
+  return null;
 }
 
 /**
@@ -339,7 +345,7 @@ async function main() {
       if (baseMoved !== false) {
         console.log(
           baseMoved === null
-            ? 'Could not read the events of this pull request; reviewing every change since the last review, merged ones included.'
+            ? 'Could not read all events of this pull request; reviewing every change since the last review, merged ones included.'
             : `The base branch of this pull request changed since the review of ${base.slice(0, 7)}; reviewing every change since then, merged ones included.`,
         );
       }
