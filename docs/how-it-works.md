@@ -299,10 +299,22 @@ The new run looks up this agent's check on `before`. If that check published a r
 `before...after`. If it did not — cancelled, timed out, missing, or a failure with no report — the
 script walks to the newest parent that did publish, and compares that commit to `after`. If there is
 no such commit, or the lookup fails, the whole pull request is the subject. The checkout still holds
-everything, so context is not lost - only the subject narrows. The whole diff also comes back when
-the incremental one cannot be trusted for the older reasons: a force-push leaves `before`
-unreachable, a merge of the base branch changes nothing under review, and a comment trigger has no
-`before` at all, which is what makes `/review` the way to ask for a full re-read. A diff over a
+everything, so context is not lost - only the subject narrows.
+
+That range can hold code the pull request did not write. When the base branch was merged in since
+the last review, the range carries everything the merge brought along. `scripts/own-changes.mjs`
+cuts the incremental diff down to the changes the pull request diff also makes. Both diffs end at
+the same commit, so an added line counts when the pull request diff adds the line with the same
+number, and a removed line counts when the pull request diff removes the same text in the same
+hunk. Lines from the base branch become context, and files only the base branch changed drop out.
+The scope line then says that changes from the base branch are left out. A merge with no work of
+the pull request's own leaves nothing, and the whole pull request is the subject: that diff holds
+only what the pull request adds to its base branch.
+
+The whole diff also comes back when the incremental one cannot be trusted for the older reasons: a
+force-push leaves `before` unreachable, the pull request moved on to a newer head while the run
+started, and a comment trigger has no `before` at all, which is what makes `/review` the way to ask
+for a full re-read. A diff over a
 megabyte is cut, with a line saying so, because a diff that does not fit the context window is worse
 than a shortened one that admits it.
 

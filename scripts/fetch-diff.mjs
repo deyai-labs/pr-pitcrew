@@ -18,6 +18,15 @@
  * published a report. `publish-report.mjs` drops anything that lands on a
  * line somebody has already commented on, as the second line of defence.
  *
+ * The range can hold more than this pull request: when the base branch was
+ * merged in since the last review, `base...after` carries everything that
+ * merge brought along. Other people's code, reviewed in their own pull
+ * requests, would be reviewed again here and its findings would fail this
+ * one. So the incremental diff is cut down to what the pull request diff
+ * itself contains (`own-changes.mjs`). A merge with no work of its own leaves
+ * nothing, and the whole pull request is reviewed: that diff only ever holds
+ * what the pull request adds to its base branch.
+ *
  * Falls back to the full diff whenever the incremental one cannot be trusted:
  * a force-push leaves `before` unreachable, a comment trigger has no `before`
  * at all, the walk finds no published review, and a failed lookup must not
@@ -33,6 +42,7 @@
 import { appendFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { changedFilesFromDiff, formatChangedFiles } from './changed-files.mjs';
+import { restrictToPullRequest } from './own-changes.mjs';
 
 const api = process.env.GITHUB_API_URL || 'https://api.github.com';
 const repository = process.env.GITHUB_REPOSITORY;
@@ -144,8 +154,20 @@ export async function walkToPublishedReview(before, commitsOldestFirst, statusOf
   return { base: null, reason: 'none' };
 }
 
-function incrementalScope(from, to) {
-  return `the ${from.slice(0, 7)}..${to.slice(0, 7)} push - the commits added since the last review. Earlier commits in this pull request have already been reviewed.`;
+function incrementalScope(from, to, mergedBase) {
+  const scope = `the ${from.slice(0, 7)}..${to.slice(0, 7)} push - the commits added since the last review. Earlier commits in this pull request have already been reviewed.`;
+  return mergedBase ? `${scope} Changes that came in from the base branch are left out; they are not part of this pull request.` : scope;
+}
+
+/**
+ * The pull request diff, but only while the pull request still ends at
+ * `after`. Restricting the incremental diff compares right-hand line numbers,
+ * and those only agree when both diffs end at the same commit.
+ */
+async function pullDiffAt(after) {
+  const pull = await jsonGet(`/repos/${repository}/pulls/${prNumber}`);
+  if (pull?.head?.sha !== after) return null;
+  return await diff(`/repos/${repository}/pulls/${prNumber}`);
 }
 
 async function listCheckRuns(sha) {
@@ -246,6 +268,7 @@ async function main() {
 
   let text = null;
   let scope = '';
+  let pullText = null;
 
   if (before && after && before !== after && before !== EMPTY_SHA) {
     const base = await resolveCompareBase(before, checkName);
@@ -256,17 +279,33 @@ async function main() {
         // describes anything this repository can reach.
         console.log(`No comparison between ${base.slice(0, 7)} and ${after.slice(0, 7)}; reviewing the whole pull request.`);
       } else if (text.trim() === '') {
-        // A merge of the base branch, or a push that changed nothing under review.
+        // A push that changed nothing under review.
         console.log('The new commits change no files; reviewing the whole pull request.');
         text = null;
       } else {
-        scope = incrementalScope(base, after);
+        pullText = await pullDiffAt(after);
+        if (pullText === null) {
+          // Without the pull request diff nothing can tell this pull request's
+          // changes from the ones a merge of the base branch brought in.
+          console.log(`Pull request #${prNumber} no longer ends at ${after.slice(0, 7)}, or its diff could not be fetched; reviewing the whole pull request.`);
+          text = null;
+        } else {
+          const own = restrictToPullRequest(text, pullText);
+          if (own.text.trim() === '') {
+            console.log("The new commits add nothing of this pull request's own (a merge of the base branch); reviewing the whole pull request.");
+            text = null;
+          } else {
+            if (own.leftOut) console.log('Left out the changes that came in from the base branch.');
+            text = own.text;
+            scope = incrementalScope(base, after, own.leftOut);
+          }
+        }
       }
     }
   }
 
   if (text === null) {
-    text = await diff(`/repos/${repository}/pulls/${prNumber}`);
+    text = pullText ?? (await diff(`/repos/${repository}/pulls/${prNumber}`));
     if (text === null) {
       console.error(`::error::Could not fetch the diff of pull request #${prNumber}.`);
       process.exit(1);

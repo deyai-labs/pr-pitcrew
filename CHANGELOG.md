@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-10-23
+
+### Fixed
+
+- **A merge of the base branch no longer brings its code into the review.** After a green
+  review, a merge of `main` into the pull request made the next run review everything the
+  merge brought in. The findings landed on the wrong pull request, and the gate failed on
+  code other pull requests wrote. The incremental diff now keeps only the changes the pull
+  request diff also makes. A merge with no work of the pull request's own reviews the whole
+  pull request, which holds only what it adds to its base branch. See
+  [`docs/how-it-works.md`](docs/how-it-works.md), "Reviewing the same pull request twice".
+
 ## [1.3.0] - 2026-09-28
 
 ### Added
@@ -159,7 +171,8 @@ is no plan to remove it.
 Version `1.0.0` rather than `0.1.0`: the interface is the one that had been running in a
 private repository for weeks, and `@v1` is what the documentation references.
 
-[Unreleased]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.2.2...v1.3.0
 [1.2.2]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.2.0...v1.2.1
