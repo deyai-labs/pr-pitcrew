@@ -275,7 +275,13 @@ runs:
     # file tools can reach it. Fetched from the API rather than with `git diff`:
     # in a comment-triggered run the checkout is still the default branch at
     # this point, where that diff would come out empty.
+    #
+    # `skip` is set when a push adds nothing of the pull request's own - a merge
+    # of the base branch - and the last review of this agent was green. Every
+    # step below checks it: no agent, no comment, and the check stays green.
+    # See scripts/fetch-diff.mjs.
     - name: Fetch the diff
+      id: diff
       if: steps.manifest.outputs.wants-diff == 'true'
       shell: bash
       env:
@@ -297,7 +303,7 @@ runs:
     # every runner image - it is not in the Playwright one - and an agent that
     # has to fetch nothing needs fewer rights to do its job.
     - name: Fetch the linked issue
-      if: steps.manifest.outputs.wants-issue == 'true'
+      if: steps.manifest.outputs.wants-issue == 'true' && steps.diff.outputs.skip != 'true'
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
@@ -310,6 +316,7 @@ runs:
     # action is itself a composite action, and the agent's shell is a process
     # inside it.
     - name: Hand the agent its inputs
+      if: steps.diff.outputs.skip != 'true'
       shell: bash
       env:
         TARGET_URL_IN: ${{ inputs.target-url }}
@@ -369,6 +376,7 @@ runs:
 
     - name: Build the configuration and the prompt
       id: config
+      if: steps.diff.outputs.skip != 'true'
       shell: bash
       env:
         AGENT: ${{ inputs.agent }}
@@ -426,7 +434,7 @@ runs:
     # and the reaction the action leaves on the comment is how a person sees
     # that their `/review` arrived.
     - name: Install the OpenCode runtime
-      if: github.event_name == 'pull_request'
+      if: github.event_name == 'pull_request' && steps.diff.outputs.skip != 'true'
       shell: bash
       env:
         # The same installer the wrapper action runs, honouring the same
@@ -441,7 +449,7 @@ runs:
         "$HOME/.opencode/bin/opencode" --version
 
     - name: Run the agent
-      if: github.event_name == 'pull_request'
+      if: github.event_name == 'pull_request' && steps.diff.outputs.skip != 'true'
       shell: bash
       env:
         # As on the other path: the generated configuration refers to these as
@@ -496,7 +504,7 @@ runs:
         exit "$status"
 
     - name: Run the agent through the OpenCode action
-      if: github.event_name != 'pull_request'
+      if: github.event_name != 'pull_request' && steps.diff.outputs.skip != 'true'
       uses: anomalyco/opencode/github@2c14fc5586fe0b88e5c04732d2e846769cc35671 # latest
       env:
         # Endpoint and key reach OpenCode as environment variables rather than
@@ -544,7 +552,7 @@ runs:
     # (a `write_report` call, a write of the file, JSON in the reply) and only
     # then spends one more turn asking for the tool by name. No second review.
     - name: Recover the report the agent already produced
-      if: ${{ !cancelled() }}
+      if: ${{ !cancelled() && steps.diff.outputs.skip != 'true' }}
       shell: bash
       env:
         REPORT_FILE: ${{ github.workspace }}/.pitcrew-run/report.json
@@ -568,7 +576,7 @@ runs:
     # publish-report.mjs does that, after the findings are on the pull
     # request, unless the repository set PITCREW_REQUIRE_FULL_COVERAGE=false.
     - name: Open the files the agent skipped
-      if: ${{ !cancelled() }}
+      if: ${{ !cancelled() && steps.diff.outputs.skip != 'true' }}
       shell: bash
       env:
         CHANGED_FILES: ${{ github.workspace }}/.pitcrew-run/changed-files.txt
@@ -585,7 +593,7 @@ runs:
     # Always: a run that went wrong is exactly when the video and the logs are
     # worth having.
     - name: Upload the proof
-      if: ${{ always() && inputs.artifact-name != '' }}
+      if: ${{ always() && inputs.artifact-name != '' && steps.diff.outputs.skip != 'true' }}
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
       with:
         name: ${{ inputs.artifact-name }}
@@ -599,7 +607,7 @@ runs:
     # the agent has answered would otherwise leave an empty "no report" comment
     # behind - noise on exactly the pull request this exists to keep readable.
     - name: Publish the report
-      if: ${{ !cancelled() }}
+      if: ${{ !cancelled() && steps.diff.outputs.skip != 'true' }}
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
@@ -623,7 +631,7 @@ runs:
     # and unstructured. Deliberately not on the pull request: this is a log, and
     # a log in a comment is a wall.
     - name: Publish the agent's steps
-      if: ${{ !cancelled() }}
+      if: ${{ !cancelled() && steps.diff.outputs.skip != 'true' }}
       shell: bash
       env:
         TRANSCRIPT_TITLE: ${{ steps.manifest.outputs.title }}

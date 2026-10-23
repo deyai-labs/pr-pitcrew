@@ -15,9 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   review, a merge of `main` into the pull request made the next run review everything the
   merge brought in. The findings landed on the wrong pull request, and the gate failed on
   code other pull requests wrote. The incremental diff now keeps only the changes the pull
-  request diff also makes. A merge with no work of the pull request's own reviews the whole
-  pull request, which holds only what it adds to its base branch. See
-  [`docs/how-it-works.md`](docs/how-it-works.md), "Reviewing the same pull request twice".
+  request diff also makes.
+- **A merge of the base branch with no work of its own runs no review.** When the last review
+  of the agent was green, the agent does not start, nothing is posted, and the check stays
+  green. When the last review failed the gate, the whole pull request is reviewed, so a merge
+  cannot turn a red check green. See [`docs/how-it-works.md`](docs/how-it-works.md),
+  "Reviewing the same pull request twice".
 
 ## [1.3.0] - 2026-09-28
 

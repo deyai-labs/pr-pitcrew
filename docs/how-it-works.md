@@ -307,9 +307,15 @@ cuts the incremental diff down to the changes the pull request diff also makes. 
 the same commit, so an added line counts when the pull request diff adds the line with the same
 number, and a removed line counts when the pull request diff removes the same text in the same
 hunk. Lines from the base branch become context, and files only the base branch changed drop out.
-The scope line then says that changes from the base branch are left out. A merge with no work of
-the pull request's own leaves nothing, and the whole pull request is the subject: that diff holds
-only what the pull request adds to its base branch.
+The scope line then says that changes from the base branch are left out.
+
+A push that leaves nothing - a merge of the base branch with no work of the pull request's own, or a
+push that changes no files - has nothing to review. If the last published review of this agent was
+green, the agent does not run: `fetch-diff.mjs` sets the step output `skip`, `actions/agent` skips
+every step after it, and the check ends green with a note in the run summary. The next push finds
+that green check and reviews from there. If the last review failed the gate, its findings still
+stand, and a merge must not turn the check green. Then the whole pull request is the subject: that
+diff holds only what the pull request adds to its base branch.
 
 The whole diff also comes back when the incremental one cannot be trusted for the older reasons: a
 force-push leaves `before` unreachable, the pull request moved on to a newer head while the run

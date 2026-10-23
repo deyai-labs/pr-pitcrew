@@ -23,8 +23,14 @@
  * merge brought along. Other people's code, reviewed in their own pull
  * requests, would be reviewed again here and its findings would fail this
  * one. So the incremental diff is cut down to what the pull request diff
- * itself contains (`own-changes.mjs`). A merge with no work of its own leaves
- * nothing, and the whole pull request is reviewed: that diff only ever holds
+ * itself contains (`own-changes.mjs`).
+ *
+ * A push that leaves nothing - a merge of the base branch with no work of its
+ * own - has nothing to review, and the agent does not run at all: the script
+ * writes `skip=true` to the step's outputs and the action stops there, green.
+ * Only when the last published review was green, though. One that failed the
+ * gate still has findings standing, and a merge must not turn that check
+ * green; then the whole pull request is reviewed, whose diff only ever holds
  * what the pull request adds to its base branch.
  *
  * Falls back to the full diff whenever the incremental one cannot be trusted:
@@ -55,6 +61,9 @@ const token = process.env.GITHUB_TOKEN;
 const LIMIT = 1024 * 1024;
 const EMPTY_SHA = '0000000000000000000000000000000000000000';
 const MAX_WALK = 100;
+
+// Commits whose check of this agent ended green, filled in by the lookups.
+const cleanReviews = new Set();
 
 async function diff(path) {
   const response = await fetch(`${api}${path}`, {
@@ -204,7 +213,10 @@ async function statusOfCommit(sha, checkName) {
   if (runs === null) return 'failed';
   const check = pickAgentCheck(runs, checkName);
   if (!check) return 'unpublished';
-  if (check.conclusion === 'success') return 'published';
+  if (check.conclusion === 'success') {
+    cleanReviews.add(sha);
+    return 'published';
+  }
   if (check.conclusion !== 'failure') return 'unpublished';
   const annotations = await listAnnotations(check.id);
   if (annotations === null) return 'failed';
@@ -256,6 +268,18 @@ async function resolveCompareBase(before, checkName) {
   return result.base;
 }
 
+/**
+ * Ends the step with nothing for the agent to do. The action reads `skip` and
+ * runs none of the steps that follow, so the check ends green - and the next
+ * push finds a green check on this commit and reviews from here.
+ */
+function skip(base, after) {
+  const message = `Nothing to review: the commits since ${base.slice(0, 7)} add nothing of this pull request's own. The review of ${base.slice(0, 7)} stands for ${after.slice(0, 7)}.`;
+  console.log(`::notice::${message}`);
+  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, 'skip=true\n');
+  if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${message}\n`);
+}
+
 async function main() {
   if (!repository || !prNumber || !diffFile || !token) {
     console.error('::error::fetch-diff.mjs needs GITHUB_REPOSITORY, PR_NUMBER, DIFF_FILE and GITHUB_TOKEN.');
@@ -269,6 +293,7 @@ async function main() {
   let text = null;
   let scope = '';
   let pullText = null;
+  let nothingNew = false;
 
   if (before && after && before !== after && before !== EMPTY_SHA) {
     const base = await resolveCompareBase(before, checkName);
@@ -280,7 +305,8 @@ async function main() {
         console.log(`No comparison between ${base.slice(0, 7)} and ${after.slice(0, 7)}; reviewing the whole pull request.`);
       } else if (text.trim() === '') {
         // A push that changed nothing under review.
-        console.log('The new commits change no files; reviewing the whole pull request.');
+        console.log('The new commits change no files.');
+        nothingNew = true;
         text = null;
       } else {
         pullText = await pullDiffAt(after);
@@ -292,7 +318,8 @@ async function main() {
         } else {
           const own = restrictToPullRequest(text, pullText);
           if (own.text.trim() === '') {
-            console.log("The new commits add nothing of this pull request's own (a merge of the base branch); reviewing the whole pull request.");
+            console.log("The new commits add nothing of this pull request's own (a merge of the base branch).");
+            nothingNew = true;
             text = null;
           } else {
             if (own.leftOut) console.log('Left out the changes that came in from the base branch.');
@@ -300,6 +327,14 @@ async function main() {
             scope = incrementalScope(base, after, own.leftOut);
           }
         }
+      }
+
+      if (nothingNew) {
+        if (cleanReviews.has(base)) {
+          skip(base, after);
+          return;
+        }
+        console.log(`The review of ${base.slice(0, 7)} did not pass, so its findings still stand; reviewing the whole pull request.`);
       }
     }
   }
