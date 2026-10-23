@@ -11,6 +11,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  baseChangedSince,
   checkPublishedReport,
   matchesAgentCheck,
   pickAgentCheck,
@@ -195,5 +196,29 @@ describe('walkToPublishedReview', () => {
     });
     assert.deepEqual(result, { base: null, reason: 'none' });
     assert.deepEqual(called, [extra]);
+  });
+});
+
+describe('baseChangedSince', () => {
+  const since = '2026-10-23T06:00:00Z';
+  const changed = at => ({ event: 'base_ref_changed', created_at: at });
+
+  it('is false when the base never changed', () => {
+    assert.equal(baseChangedSince([{ event: 'labeled', created_at: '2026-10-23T07:00:00Z' }], since), false);
+    assert.equal(baseChangedSince([], since), false);
+  });
+
+  it('ignores a change before the review started', () => {
+    assert.equal(baseChangedSince([changed('2026-10-23T05:59:59Z')], since), false);
+  });
+
+  it('counts a change at or after the review started', () => {
+    assert.equal(baseChangedSince([changed('2026-10-23T06:00:00Z')], since), true);
+    assert.equal(baseChangedSince([changed('2026-10-23T08:00:00Z')], since), true);
+  });
+
+  it('counts a review with no start time as changed', () => {
+    assert.equal(baseChangedSince([], ''), true);
+    assert.equal(baseChangedSince([], undefined), true);
   });
 });

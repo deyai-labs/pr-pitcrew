@@ -18,6 +18,30 @@
  * published a report. `publish-report.mjs` drops anything that lands on a
  * line somebody has already commented on, as the second line of defence.
  *
+ * The range can hold more than this pull request: when the base branch was
+ * merged in since the last review, `base...after` carries everything that
+ * merge brought along. Other people's code, reviewed in their own pull
+ * requests, would be reviewed again here and its findings would fail this
+ * one. So the incremental diff is cut down to what the pull request diff
+ * itself contains (`own-changes.mjs`).
+ *
+ * A push that leaves nothing - a merge of the base branch with no work of its
+ * own - has nothing to review, and the agent does not run at all: the script
+ * writes `skip=true` to the step's outputs and the action stops there, green.
+ * Only when the last published review was green, though. One that failed the
+ * gate still has findings standing, and a merge must not turn that check
+ * green; then the whole pull request is reviewed, whose diff only ever holds
+ * what the pull request adds to its base branch.
+ *
+ * Both rest on the pull request diff, and GitHub computes that against the base
+ * branch the pull request names *now*. Its author can change it, and a change
+ * of base starts no run. Switch the base to another branch, merge that branch
+ * in, and its content is in no pull request diff: the cut would drop it and the
+ * skip would pass it green, then the base goes back to `main` with a green
+ * check on the head. So when the base changed since the review this run starts
+ * from, or the lookup fails, neither applies: every change since that review
+ * is reviewed, merged ones included, as before the cut existed.
+ *
  * Falls back to the full diff whenever the incremental one cannot be trusted:
  * a force-push leaves `before` unreachable, a comment trigger has no `before`
  * at all, the walk finds no published review, and a failed lookup must not
@@ -33,6 +57,7 @@
 import { appendFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { changedFilesFromDiff, formatChangedFiles } from './changed-files.mjs';
+import { restrictToPullRequest } from './own-changes.mjs';
 
 const api = process.env.GITHUB_API_URL || 'https://api.github.com';
 const repository = process.env.GITHUB_REPOSITORY;
@@ -45,6 +70,10 @@ const token = process.env.GITHUB_TOKEN;
 const LIMIT = 1024 * 1024;
 const EMPTY_SHA = '0000000000000000000000000000000000000000';
 const MAX_WALK = 100;
+const MAX_EVENT_PAGES = 10;
+
+// The published checks of this agent, by commit, filled in by the lookups.
+const reviews = new Map();
 
 async function diff(path) {
   const response = await fetch(`${api}${path}`, {
@@ -144,8 +173,20 @@ export async function walkToPublishedReview(before, commitsOldestFirst, statusOf
   return { base: null, reason: 'none' };
 }
 
-function incrementalScope(from, to) {
-  return `the ${from.slice(0, 7)}..${to.slice(0, 7)} push - the commits added since the last review. Earlier commits in this pull request have already been reviewed.`;
+function incrementalScope(from, to, mergedBase) {
+  const scope = `the ${from.slice(0, 7)}..${to.slice(0, 7)} push - the commits added since the last review. Earlier commits in this pull request have already been reviewed.`;
+  return mergedBase ? `${scope} Changes that came in from the base branch are left out; they are not part of this pull request.` : scope;
+}
+
+/**
+ * The pull request diff, but only while the pull request still ends at
+ * `after`. Restricting the incremental diff compares right-hand line numbers,
+ * and those only agree when both diffs end at the same commit.
+ */
+async function pullDiffAt(after) {
+  const pull = await jsonGet(`/repos/${repository}/pulls/${prNumber}`);
+  if (pull?.head?.sha !== after) return null;
+  return await diff(`/repos/${repository}/pulls/${prNumber}`);
 }
 
 async function listCheckRuns(sha) {
@@ -182,11 +223,46 @@ async function statusOfCommit(sha, checkName) {
   if (runs === null) return 'failed';
   const check = pickAgentCheck(runs, checkName);
   if (!check) return 'unpublished';
-  if (check.conclusion === 'success') return 'published';
+  const review = { clean: check.conclusion === 'success', startedAt: check.started_at ?? '' };
+  if (review.clean) {
+    reviews.set(sha, review);
+    return 'published';
+  }
   if (check.conclusion !== 'failure') return 'unpublished';
   const annotations = await listAnnotations(check.id);
   if (annotations === null) return 'failed';
-  return checkPublishedReport(check, annotations) ? 'published' : 'unpublished';
+  if (!checkPublishedReport(check, annotations)) return 'unpublished';
+  reviews.set(sha, review);
+  return 'published';
+}
+
+/**
+ * Whether the events of a pull request change its base branch at or after
+ * `since`. No time to compare against counts as a change: that is the side
+ * where nothing is left out of a review.
+ */
+export function baseChangedSince(events, since) {
+  if (!since) return true;
+  return (events ?? []).some(
+    event => event?.event === 'base_ref_changed' && String(event.created_at ?? '') >= since,
+  );
+}
+
+/**
+ * True, false, or null when the events could not be read in full. A list cut
+ * off at the page limit counts as unread: the events come oldest first, so the
+ * change of base would be among the ones left out, and anyone can add events
+ * to a pull request by mentioning it.
+ */
+async function baseMovedSince(since) {
+  const events = [];
+  for (let page = 1; page <= MAX_EVENT_PAGES; page++) {
+    const body = await jsonGet(`/repos/${repository}/issues/${prNumber}/events?per_page=100&page=${page}`);
+    if (body === null || !Array.isArray(body)) return null;
+    events.push(...body);
+    if (body.length < 100) return baseChangedSince(events, since);
+  }
+  return null;
 }
 
 /**
@@ -234,6 +310,18 @@ async function resolveCompareBase(before, checkName) {
   return result.base;
 }
 
+/**
+ * Ends the step with nothing for the agent to do. The action reads `skip` and
+ * runs none of the steps that follow, so the check ends green - and the next
+ * push finds a green check on this commit and reviews from here.
+ */
+function skip(base, after) {
+  const message = `Nothing to review: the commits since ${base.slice(0, 7)} add nothing of this pull request's own. The review of ${base.slice(0, 7)} stands for ${after.slice(0, 7)}.`;
+  console.log(`::notice::${message}`);
+  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, 'skip=true\n');
+  if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${message}\n`);
+}
+
 async function main() {
   if (!repository || !prNumber || !diffFile || !token) {
     console.error('::error::fetch-diff.mjs needs GITHUB_REPOSITORY, PR_NUMBER, DIFF_FILE and GITHUB_TOKEN.');
@@ -246,27 +334,71 @@ async function main() {
 
   let text = null;
   let scope = '';
+  let pullText = null;
+  let nothingNew = false;
 
   if (before && after && before !== after && before !== EMPTY_SHA) {
     const base = await resolveCompareBase(before, checkName);
     if (base) {
+      const review = reviews.get(base);
+      const baseMoved = await baseMovedSince(review?.startedAt);
+      if (baseMoved !== false) {
+        console.log(
+          baseMoved === null
+            ? 'Could not read all events of this pull request; reviewing every change since the last review, merged ones included.'
+            : `The base branch of this pull request changed since the review of ${base.slice(0, 7)}; reviewing every change since then, merged ones included.`,
+        );
+      }
       text = await diff(`/repos/${repository}/compare/${base}...${after}`);
       if (text === null) {
         // Force-pushed, or the commit was garbage collected: `before` no longer
         // describes anything this repository can reach.
         console.log(`No comparison between ${base.slice(0, 7)} and ${after.slice(0, 7)}; reviewing the whole pull request.`);
       } else if (text.trim() === '') {
-        // A merge of the base branch, or a push that changed nothing under review.
-        console.log('The new commits change no files; reviewing the whole pull request.');
+        // A push that changed nothing under review.
+        console.log('The new commits change no files.');
+        nothingNew = true;
         text = null;
-      } else {
+      } else if (baseMoved !== false) {
+        // The pull request diff cannot tell what the merge brought in.
         scope = incrementalScope(base, after);
+      } else {
+        pullText = await pullDiffAt(after);
+        if (pullText === null) {
+          // Without the pull request diff nothing can tell this pull request's
+          // changes from the ones a merge of the base branch brought in.
+          console.log(`Pull request #${prNumber} no longer ends at ${after.slice(0, 7)}, or its diff could not be fetched; reviewing the whole pull request.`);
+          text = null;
+        } else {
+          const own = restrictToPullRequest(text, pullText);
+          if (own.text.trim() === '') {
+            console.log("The new commits add nothing of this pull request's own (a merge of the base branch).");
+            nothingNew = true;
+            text = null;
+          } else {
+            if (own.leftOut) console.log('Left out the changes that came in from the base branch.');
+            text = own.text;
+            scope = incrementalScope(base, after, own.leftOut);
+          }
+        }
+      }
+
+      if (nothingNew) {
+        if (baseMoved === false && review?.clean) {
+          skip(base, after);
+          return;
+        }
+        if (baseMoved === false) {
+          console.log(`The review of ${base.slice(0, 7)} did not pass, so its findings still stand; reviewing the whole pull request.`);
+        } else {
+          console.log('Reviewing the whole pull request.');
+        }
       }
     }
   }
 
   if (text === null) {
-    text = await diff(`/repos/${repository}/pulls/${prNumber}`);
+    text = pullText ?? (await diff(`/repos/${repository}/pulls/${prNumber}`));
     if (text === null) {
       console.error(`::error::Could not fetch the diff of pull request #${prNumber}.`);
       process.exit(1);

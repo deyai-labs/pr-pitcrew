@@ -299,10 +299,40 @@ The new run looks up this agent's check on `before`. If that check published a r
 `before...after`. If it did not — cancelled, timed out, missing, or a failure with no report — the
 script walks to the newest parent that did publish, and compares that commit to `after`. If there is
 no such commit, or the lookup fails, the whole pull request is the subject. The checkout still holds
-everything, so context is not lost - only the subject narrows. The whole diff also comes back when
-the incremental one cannot be trusted for the older reasons: a force-push leaves `before`
-unreachable, a merge of the base branch changes nothing under review, and a comment trigger has no
-`before` at all, which is what makes `/review` the way to ask for a full re-read. A diff over a
+everything, so context is not lost - only the subject narrows.
+
+That range can hold code the pull request did not write. When the base branch was merged in since
+the last review, the range carries everything the merge brought along. `scripts/own-changes.mjs`
+cuts the incremental diff down to the changes the pull request diff also makes. Both diffs end at
+the same commit, so an added line counts when the pull request diff adds the line with the same
+number. A removed line counts when the pull request diff changes anything at the place of the run
+of changes it belongs to, or removes the same text anywhere in the file. Both rules are needed: when
+the base branch rewrote what the pull request deletes, only the place agrees, and when the base
+branch moved it, only the text agrees. That errs towards showing a line too many, never towards
+hiding a change of the pull request. Lines from the base branch become context, and
+files only the base branch changed drop out.
+The scope line then says that changes from the base branch are left out.
+
+A push that leaves nothing - a merge of the base branch with no work of the pull request's own, or a
+push that changes no files - has nothing to review. If the last published review of this agent was
+green, the agent does not run: `fetch-diff.mjs` sets the step output `skip`, `actions/agent` skips
+every step after it, and the check ends green with a note in the run summary. The next push finds
+that green check and reviews from there. If the last review failed the gate, its findings still
+stand, and a merge must not turn the check green. Then the whole pull request is the subject: that
+diff holds only what the pull request adds to its base branch.
+
+Both the cut and the skip trust the pull request diff, and GitHub computes it against the base
+branch the pull request names *now*. Its author can change that base, and a change of base starts no
+run. Switch the base to another branch, merge that branch in, and its content is in no pull request
+diff: the cut would drop it, the skip would pass it green, and the base goes back to `main` with a
+green check on the head. So `fetch-diff.mjs` reads the pull request's events first. If the base
+changed after the review this run starts from, or the events cannot be read, neither applies: the
+subject is every change since that review, merged ones included.
+
+The whole diff also comes back when the incremental one cannot be trusted for the older reasons: a
+force-push leaves `before` unreachable, the pull request moved on to a newer head while the run
+started, and a comment trigger has no `before` at all, which is what makes `/review` the way to ask
+for a full re-read. A diff over a
 megabyte is cut, with a line saying so, because a diff that does not fit the context window is worse
 than a shortened one that admits it.
 
