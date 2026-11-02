@@ -46,7 +46,8 @@ Field by field:
 | `command` | The slash command that reruns it on a comment. Optional, but a review nobody can ask for again is a review people work around. |
 | `description` | Goes into the generated OpenCode configuration as the agent's description. |
 | `profile` | A file in `profiles/`, without the `.json`. Defined once, referenced by every agent that needs it. |
-| `report` | `findings` or `criteria`, and it is enforced rather than suggested: an agent declared `criteria` cannot publish findings, and the other way round. |
+| `report` | `findings`, `criteria` or `guide`, and it is enforced rather than suggested: an agent declared `criteria` cannot publish findings, and the other way round. `guide` belongs to the review guide and publishes neither ([ADR 10](adr/0010-a-report-kind-for-the-review-guide.md)). |
+| `diffScope` | Optional. `incremental` (the default) reviews only the commits since the last published review on a push. `pull-request` hands the agent the whole pull request on every run, as the review guide needs. |
 | `inputs` | Which of `diff`, `issue` and `target` the harness should prepare. Each one it does not list is one step the run skips and one thing the agent cannot see. |
 | `temperature` | Optional, `0.1` when absent. |
 | `modelVariable` | Documentation only. No script reads it; it records which variable the workflow below is expected to consult. |
@@ -282,6 +283,10 @@ Nothing else. Not one line:
   ask for.
 - **`profiles/`.** Reuse one. A new profile is a threat-model change, not an agent change.
 - **`scripts/write_report.js`.** Its schema already covers findings and criteria.
+
+This holds for an agent that writes `findings` or `criteria`. A new kind of report is a change to the
+package, not to an agent, and needs an ADR. The review guide was such a change:
+[ADR 10](adr/0010-a-report-kind-for-the-review-guide.md).
 - The severity symbols, the comment markers, the dedup rules, the quality gate.
 
 ## Run the tests
@@ -315,7 +320,8 @@ repository doing nothing.
 | `agent.json` is not valid JSON | `<path> is not valid JSON: <parser message>` |
 | A missing `id`, `title`, `profile` or `report` | `<path> has no "<field>". A manifest without one cannot be run.` |
 | The manifest's `id` does not match the directory | `<path> calls itself "x" but lives in agents/y/.` |
-| A `report` other than `findings` or `criteria` | `<path> declares report "x"; known kinds are "findings" and "criteria".` |
+| A `report` other than `findings`, `criteria` or `guide` | `<path> declares report "x"; known kinds are "findings", "criteria" and "guide".` |
+| A `diffScope` other than `incremental` or `pull-request` | `<path> declares diffScope "x"; known scopes are "incremental" and "pull-request".` |
 | No `prompt.md` | `<path> is missing, so there is nothing to ask the agent.` |
 | A `profile` with no file in `profiles/` | `Agent "<id>" wants the permission profile "x", which this package does not define.` |
 | No model configured | `No model is configured. Set the repository variable PITCREW_LLM_API_MODEL …` |

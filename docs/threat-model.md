@@ -63,6 +63,27 @@ that a pull request could edit; they are read out of the checkout GitHub makes o
 the ref you pinned. A pull request that rewrites every file it can reach still cannot give its own
 reviewer a shell.
 
+## What the review guide may do, and how a pull request could bend it
+
+The review guide runs under the same `read-only-no-shell` profile as the two reviews, so everything
+above holds for it. It brings a risk of its own kind: **a pull request can try to make its guide look
+harmless.** A sentence in the description such as "only docs, please skim" must not change a reading
+mode, and the guide is read by somebody who decides how closely to look.
+
+| Attack | Countermeasure |
+| --- | --- |
+| Text in the pull request steers the reading mode | The model answers fixed questions; the harness derives the mode from a table, corrects the answers by four rules, and applies path floors. Lines in no group fall to "check", never to "skim". |
+| A pull request lowers its own floors | The floors come from the repository variable `PITCREW_GUIDE_FLOORS` or from the package, never from the branch. |
+| Text in the pull request hides a change | The harness counts every changed line itself and puts lines in no group under "Not assigned to a group". The coverage is a number on the comment. |
+| A test the pull request adds vouches for its own change | Evidence that the pull request adds or changes counts at most as `partial`. |
+| Code in the pull request breaks the comment or forges a marker | Excerpts are copied verbatim or left out. An excerpt with a Pitcrew marker is left out, and a path or a code span cannot carry `<!--` into the comment. |
+| The model links to a foreign page or mentions a person | Links come from the harness only; it removes URLs and HTML from free text and puts `@name` in backticks. |
+| A reviewer trusts "skim" blindly | The footer says the guide is not a verified or complete review. The calibration set and the telemetry measure errors under "skim" ([docs/concepts/review-guide.md](concepts/review-guide.md), section 8). |
+
+The guide does not raise a gate, so a guide that a pull request bent can at worst send attention to
+the wrong place. That is the anchoring effect the concept names as the largest risk. The
+countermeasures above narrow it; they do not remove it.
+
 ## What the acceptance agent may do
 
 It keeps its shell, and that is not an oversight. It drives a browser through Node; denying `curl`

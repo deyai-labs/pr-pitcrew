@@ -44,6 +44,10 @@ What drives the number, in order:
    session is read back and, only if the report cannot be recovered from it, one further turn is
    spent asking for the tool by name. Never a second review.
 
+The review guide is the exception to the first point: it reads the whole pull request on every run,
+because it describes the whole pull request. A guide costs about as much as a full `bug-review` of the
+same pull request, on every push. A new push cancels the guide in flight.
+
 Rough shape, for a review of a diff of a few hundred lines: input in the tens of thousands of tokens,
 output in the low thousands. The acceptance test is a different animal. It is an agentic loop with
 a browser, so it is dominated by the number of turns, and a run of tens of turns is normal.
@@ -69,6 +73,7 @@ It is also why the acceptance test does not start on every push. See below.
 | If it is too expensive | Do this |
 | --- | --- |
 | The reviews run on every push | Nothing stops that today; they are cheap. If it still matters, drop `synchronize` from your caller's `on:` and rerun with `/review`. |
+| The review guide runs on every push | Set `PITCREW_GUIDE_ON_PUSH=false`. The guide then runs when the pull request opens and on `/guide`; a push only marks the old guide as outdated, for no model cost. |
 | The acceptance test runs too often | It already only runs on an explicit request. Do not put the reviewer account in `CODEOWNERS`, and do not hang it behind `needs:` in an orchestrator - both make it automatic again. |
 | The model is too expensive for the reviews | Set `PITCREW_LLM_API_MODEL_BUG_REVIEW` and `PITCREW_LLM_API_MODEL_SECURITY_REVIEW` to something cheaper and leave the acceptance test alone. |
 | Only one agent earns its keep | Enable only that one. They are independent workflows. |

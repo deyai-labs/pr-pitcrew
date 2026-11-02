@@ -15,22 +15,23 @@
     src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
 </p>
 
-Three review agents for your pull requests, installed as GitHub Actions workflows and run on your
-own LLM endpoint. Open a pull request and it is read for bugs and for security defects, with each
-finding written as a comment on the line it is about. Ask for the third one and an agent with a
-browser drives your app, walks the linked issue's acceptance criteria, and leaves the
-recording behind for you to check.
+Four agents for your pull requests, installed as GitHub Actions workflows and run on your own LLM
+endpoint. Open a pull request and it is read for bugs and for security defects, with each finding
+written as a comment on the line it is about. A guide tells you where to read closely and what to
+skim. Ask for the acceptance test and an agent with a browser drives your app, walks the linked
+issue's acceptance criteria, and leaves the recording behind for you to check.
 
 A real pit crew: several specialists, each with one job, all at once, and the car leaves in better
 shape than it arrived.
 
-Three of them ship today:
+Four of them ship today:
 
 | Agent | Check | What it does |
 | --- | --- | --- |
 | `bug-review` | `Pitcrew / Bug Review` | Reads the diff, reports defects it can prove, as comments at the code. Fails the check from a severity you choose. |
 | `security-review` | `Pitcrew / Security Review` | The same, for security defects. |
 | `acceptance-test` | `Pitcrew / Acceptance Test` | Drives your deployed app in a browser, proves the linked issue's acceptance criteria, and uploads the video. |
+| `review-guide` | `Pitcrew / Review Guide` | Writes one comment that groups the changes by purpose and recommends how closely to read each group, with links into the diff. Reports no findings and has no gate. |
 
 They run on [OpenCode](https://opencode.ai) inside **your** runner, against **your**
 OpenAI-compatible endpoint, with **your** key. No third-party service sits in between, and no model
@@ -89,7 +90,7 @@ jobs:
       api-key: ${{ secrets.PITCREW_LLM_API_KEY }}
 ```
 
-Then, once for all three agents, under **Settings → Secrets and variables → Actions**:
+Then, once for all agents, under **Settings → Secrets and variables → Actions**:
 
 | | |
 | --- | --- |
@@ -99,10 +100,10 @@ Then, once for all three agents, under **Settings → Secrets and variables → 
 
 Open a pull request. There is no fourth step.
 
-The other two are that same file with another name in it. `examples/` has all three, ready to copy:
-the security review is installed exactly like this one, and the acceptance test differs in what
-starts it and in two variables of its own, which the section below explains. Beyond the endpoint,
-the key and the model, they share nothing, so enable one, two or all three.
+The others are that same file with another name in it. `examples/` has all four, ready to copy: the
+security review and the review guide are installed exactly like this one, and the acceptance test
+differs in what starts it and in two variables of its own, which the section below explains. Beyond
+the endpoint, the key and the model, they share nothing, so enable any of them.
 
 See [`docs/configuration.md`](docs/configuration.md) for the full configuration options.
 
@@ -166,6 +167,18 @@ nothing".
 For what belongs to one agent and is not a project rule, append to its prompt rather than forking
 it - see [`docs/adding-an-agent.md`](docs/adding-an-agent.md).
 
+### The review guide
+
+Reviewers read every changed line with the same care, and the diff does not say which changes are
+risky. The guide does: it groups the changes by purpose, gives each group a category such as
+🔒 Security or ⚙️ Operations, and recommends a reading mode: ▰▰▰ Read closely, ▰▰▱ Check or ▰▱▱ Skim.
+
+The model does not pick the mode. It answers fixed questions per group, and the harness derives the
+mode from a table. Path rules raise it for workflows, migrations or dependencies. Every link, number
+and code excerpt comes from the diff, not from the model. "Nothing to read closely" is a normal
+result. The guide is one comment, updated in place on every push; ticks on its checks stay while the
+code under them stays. See [`docs/review-guide.md`](docs/review-guide.md).
+
 ### The acceptance test agent
 
 This one costs more than the other two: a container, a browser, up to half an hour, and real
@@ -199,7 +212,8 @@ the pull request comments that reach it. See
 | [`docs/configuration.md`](docs/configuration.md) | Every secret, variable and input. |
 | [`docs/threat-model.md`](docs/threat-model.md) | What this defends against, what it does not, and where your data goes. |
 | [`docs/costs.md`](docs/costs.md) | What a run costs, and the knobs that make it cost less. |
-| [`docs/adding-an-agent.md`](docs/adding-an-agent.md) | A fourth agent, from nothing to its first comment. |
+| [`docs/review-guide.md`](docs/review-guide.md) | The review guide: categories, reading modes, the scale behind them, and the floors. |
+| [`docs/adding-an-agent.md`](docs/adding-an-agent.md) | A new agent, from nothing to its first comment. |
 | [`docs/adr/`](docs/adr/) | The decisions behind the shape of this package. |
 
 ## Requirements

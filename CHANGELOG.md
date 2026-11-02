@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A fourth agent: the review guide.** `review-guide` writes one comment per pull request. It groups
+  the changes by purpose, gives each group categories such as 🔒 Security or ⚙️ Operations, and
+  recommends a reading mode: read closely, check or skim. The model answers fixed questions per
+  group; the harness derives the mode from a table, applies path floors, and writes every link,
+  number and code excerpt itself. The comment is updated in place on every push, and ticks on its
+  checks stay while the code under them stays. It reports no findings and has no quality gate.
+  Install it with [`examples/review-guide.yml`](examples/review-guide.yml); see
+  [`docs/review-guide.md`](docs/review-guide.md).
+- **`PITCREW_GUIDE_FLOORS`** replaces the default path floors of the guide, and
+  **`PITCREW_GUIDE_ON_PUSH=false`** keeps a push from starting it. A push then marks the old guide as
+  outdated.
+- **A third report kind, `guide`**, and an optional manifest field `diffScope`. See
+  [ADR 10](docs/adr/0010-a-report-kind-for-the-review-guide.md).
+- **A calibration set for the guide** in [`eval/review-guide/`](eval/review-guide/), with three rated
+  pull requests and a scorer for false alarms, missed critical groups and agreement.
+
 ## [1.3.1] - 2026-10-23
 
 ### Fixed

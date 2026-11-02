@@ -393,6 +393,11 @@ acceptance agent drives a running application through its interface and never se
 file and a line from it would be a guess wearing the clothes of evidence, and a reader cannot tell
 those two apart. The prompt says as much; this is what makes it true whatever the model does.
 
+A third kind, `guide`, belongs to the review guide. It carries groups of changes and the answers to
+fixed questions per group, and it reports neither findings nor criteria; `scripts/report.mjs` drops
+both. See [The review guide](#the-review-guide) below and
+[ADR 10](adr/0010-a-report-kind-for-the-review-guide.md).
+
 The generic file-writing tools still work. The dedicated tool is what the prompts name, and what the
 retry asks for.
 
@@ -829,6 +834,43 @@ Two things about called workflows that are easy to be surprised by:
   `<caller job id> / <job name>`, so `Pitcrew / Bug Review` appears as `bug-review / Pitcrew / Bug
   Review` with the example caller, and as `bug / Pitcrew / Bug Review` under the orchestrator above.
   If branch protection requires status checks by name, those are the names.
+
+## The review guide
+
+The fourth agent, `review-guide`, writes no findings. It writes one comment that points attention:
+groups of changes by purpose, a reading mode per group, and links into the diff. What a reader sees
+and how the modes come about is in [review-guide.md](review-guide.md). This section is about how a
+run differs from a review.
+
+**It reads the whole pull request on every run.** Its manifest says `diffScope: "pull-request"`, and
+`fetch-diff.mjs` then skips the incremental walk. It fetches the pull request diff and the head commit
+together, and reads the head again afterwards; a push in between is tried again, so the permalinks
+and the diff describe the same commit. The agent gets the diff cut at 1 MB, like the reviews. The
+harness keeps the uncut diff in `FULL_DIFF_FILE` and checks the guide against that.
+
+**It gets the description as a file.** On the `pull_request` path the runtime puts no pull request
+context into the prompt ([ADR 9](adr/0009-the-pull-request-path-runs-the-cli.md)).
+`fetch-issue.mjs` writes title and body to `DESCRIPTION_FILE`, because the guide compares the
+changes with what the description and the issue say.
+
+**The model gives structure, the code gives facts.** The model answers five questions per group:
+consequence, scenario, safeguards, evidence, reversible. `scripts/guide.mjs` corrects the answers by
+four rules, derives the reading mode from a fixed table, and applies the path floors. It checks every
+range against the diff, collects lines in no group under "Not assigned to a group" at check, copies
+excerpts verbatim from the diff, and builds every link and number itself. A model cannot invent a
+link, a line count or a line of code, and it never picks a mode.
+
+**One comment, updated in place.** `publish-report.mjs` hands a `guide` to `publish-guide.mjs`. That
+script finds the oldest guide comment of this bundle (a bot author and the marker
+`<!-- pitcrew:summary:review-guide -->`) and rewrites it. The comment keeps its place under the
+description. A tick on a check survives the update when the check's text, its lines and the code under
+them are the same; a hidden hash per check carries that. There are no comments at the code and no
+quality gate. The check is red only when no guide came out of the run; an earlier guide then stays
+and is marked outdated.
+
+**The rating goes to the run summary.** Every answer, every correction and the mode per group, and the
+scenarios. When the comment had to be shortened, the full guide follows. The report and the rating
+are uploaded as the artifact `pitcrew-review-guide`.
 
 ## The recording
 

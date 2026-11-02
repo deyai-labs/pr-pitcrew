@@ -26,9 +26,12 @@ Settings → Secrets and variables → Actions → Variables.
 | `PITCREW_LLM_API_MODEL_BUG_REVIEW` | bug review | no | `PITCREW_LLM_API_MODEL` | Model for that one agent. |
 | `PITCREW_LLM_API_MODEL_SECURITY_REVIEW` | security review | no | `PITCREW_LLM_API_MODEL` | Model for that one agent. |
 | `PITCREW_LLM_API_MODEL_ACCEPTANCE_TEST` | acceptance test | no | `PITCREW_LLM_API_MODEL` | Model for that one agent. Reading a diff and driving a browser for half an hour are different jobs. |
+| `PITCREW_LLM_API_MODEL_REVIEW_GUIDE` | review guide | no | `PITCREW_LLM_API_MODEL` | Model for that one agent. |
 | `PITCREW_FAIL_ON` | bug and security review | no | `high` | Severity from which findings fail the check: `high`, `medium`, `low`, or `never` to keep the agent advisory. Anything else is refused with a warning and `high` is used. |
-| `PITCREW_FAIL_ON_NO_REPORT` | bug and security review | no | `true` | `false` lets a run whose agent produced no usable report stay green. The default fails it, because a diff nobody reviewed is not a diff nobody found anything in. |
+| `PITCREW_FAIL_ON_NO_REPORT` | bug and security review, review guide | no | `true` | `false` lets a run whose agent produced no usable report stay green. The default fails it, because a diff nobody reviewed is not a diff nobody found anything in. |
 | `PITCREW_REQUIRE_FULL_COVERAGE` | bug and security review | no | `true` | `false` lets a run whose agent skipped changed files stay green. The default fails it, because a pass built only on hunks is not evidence that the files were reviewed. The comment names the shortfall either way — `Scope: … · 7 of 29 changed files opened`. Markdown, lockfiles and deletions are not on the list, so a docs-only diff cannot go red for this. |
+| `PITCREW_GUIDE_FLOORS` | review guide | no | the default floors | Path rules that set a minimum reading mode, one per line: a pattern and `check` or `read`. They replace the default list. A value without a valid rule keeps the default and warns. See [review-guide.md](review-guide.md#floors). |
+| `PITCREW_GUIDE_ON_PUSH` | review guide | no | `true` | `false` keeps a push from starting the guide. The old guide is then marked outdated instead, for no model cost. Opening the pull request and `/guide` still start it. |
 | `PITCREW_OUTPUT_LANGUAGE` | all | no | `English` | The language the agent writes its own text in - the summary sentence, finding bodies, criteria evidence. The frame around that text is English on every run, which is why English is the default. |
 | `PITCREW_APP_ID` | all | no | none | Id of a GitHub App. When set, comments carry that app's name and avatar instead of `github-actions[bot]`. Needs `PITCREW_APP_PRIVATE_KEY` as well. |
 | `PITCREW_ACCEPTANCE_TARGET_URL` | acceptance test | yes for that agent | none | The deployed application the agent drives. Without it the run stops with an error rather than pretending to test something. |
@@ -72,7 +75,7 @@ involved either way: this is your app talking to your repository.
 
 ## The reusable workflows
 
-Three, one per agent. Each is called with `uses:` and takes its inputs and secrets as shown.
+Four, one per agent. Each is called with `uses:` and takes its inputs and secrets as shown.
 
 ```yaml
 jobs:
@@ -116,6 +119,31 @@ Job permissions: `contents: read`, `pull-requests: write`, `issues: write`, `che
 is so the next push can see if this agent's check on the previous commit published a report. Without
 it, a cancelled review is skipped. `issues: write` rather than `read` because the runtime marks the
 trigger with a reaction, and reactions on a pull request are governed by the issues permission.
+
+### `review-guide.yml`
+
+| Input | Type | Default | Effect |
+| --- | --- | --- | --- |
+| `model` | string | `PITCREW_LLM_API_MODEL_REVIEW_GUIDE`, then `PITCREW_LLM_API_MODEL` | Model id. |
+| `api-base-url` | string | `PITCREW_LLM_API_BASE_URL` | OpenAI-compatible endpoint. |
+| `output-language` | string | `PITCREW_OUTPUT_LANGUAGE`, then `English` | Language the agent writes in. |
+| `timeout-minutes` | number | `20` | Job timeout. |
+| `runs-on` | string | `ubuntu-latest` | Runner: one label, or a JSON array of labels. |
+
+Secrets as for the two reviews.
+
+Triggers: a `pull_request` event on a non-draft pull request, or an `issue_comment` containing
+`/guide`, with the same rule for the commenter. With `PITCREW_GUIDE_ON_PUSH=false`, a push
+(`synchronize`) runs the job `Pitcrew / Review Guide (outdated)` instead. It marks the old guide as
+outdated and calls no model.
+
+Check name: `Pitcrew / Review Guide`. It has no quality gate. It is red only when no guide came out
+of the run, unless `PITCREW_FAIL_ON_NO_REPORT` is `false`.
+
+Job permissions: as for the two reviews. The guide always reads the whole pull request.
+
+Uploads the artifact `pitcrew-review-guide`: the report as the agent wrote it, and the rating as the
+harness made it.
 
 ### `acceptance-test.yml`
 
@@ -217,6 +245,7 @@ in the workspace that has kept its credentials and was made with `fetch-depth: 0
 | `artifact-label` | no | the artifact name | What that download link says. |
 | `artifact-retention-days` | no | `30` | How long the artifact is kept. |
 | `output-language` | no | `English` | Language the agent writes its own text in. |
+| `guide-floors` | no | `''` | Path rules for the review guide. They replace the default floors. Only the review guide reads them. |
 | `opencode-version` | no | `1.18.18` | Version of the OpenCode runtime to install. Pinned on purpose; see [threat-model.md](threat-model.md). |
 
 ## `actions/check-deployment`
@@ -248,6 +277,7 @@ Prompts refer to them by these names; nothing else is filled in.
 | `DIFF_SCOPE` | one sentence saying which diff it is: the commits since the last published review, or the whole pull request |
 | `CHANGED_FILES` | `.pitcrew-run/changed-files.txt`, the paths from that same diff the agent has to open. Empty when the diff is Markdown, lockfiles or deletions only |
 | `ISSUE_FILE` | `.pitcrew-run/issue.md`, present when the manifest lists the `issue` input. Empty when the pull request closes no issue |
+| `DESCRIPTION_FILE` | `.pitcrew-run/description.md`, the pull request's title and body, present when the manifest lists the `issue` input |
 | `REPORT_FILE` | `.pitcrew-run/report.json` |
 | `WORK_DIR` | `.pitcrew-run/scenario` - scratch space, git-ignored |
 | `ARTIFACT_DIR` | `.pitcrew-run/proof` - uploaded with the run |
@@ -264,7 +294,8 @@ Useful when working on the package rather than using it. See [../CONTRIBUTING.md
 
 | | |
 | --- | --- |
-| `DRY_RUN=1` | `publish-report.mjs` prints what it would post and touches no API |
+| `DRY_RUN=1` | `publish-report.mjs` prints what it would post and touches no API. For the review guide that is the rendered comment |
+| `FULL_DIFF_FILE`, `GUIDE_HEAD_SHA`, `GUIDE_FLOORS` | what the review guide's publisher would otherwise get from `fetch-diff.mjs` and the action |
 | `SESSION_EXPORT=<file>` | `publish-transcript.mjs`, `ensure-report.mjs` and `ensure-coverage.mjs` read that file instead of calling the OpenCode CLI. In this mode the transcript prints to stdout and never writes to the run summary, even inside a job |
 | `TRANSCRIPT_TITLE` | the heading of the transcript section |
 | `TRANSCRIPT_REDACT` | extra environment variable names whose values are replaced by `[redacted]`. Names containing `KEY`, `TOKEN`, `SECRET`, `PASSWORD` or `CREDENTIAL` are recognised without this |

@@ -15,3 +15,4 @@ a new record that supersedes the old one.
 | [7](0007-what-is-deliberately-not-in-the-first-release.md) | What is deliberately not in the first release |
 | [8](0008-a-clean-first-commit.md) | A clean first commit, with the origin stated |
 | [9](0009-the-pull-request-path-runs-the-cli.md) | A `pull_request` runs the OpenCode CLI; a comment keeps the action |
+| [10](0010-a-report-kind-for-the-review-guide.md) | The review guide is a third report kind, with its own schema and its own publisher |
