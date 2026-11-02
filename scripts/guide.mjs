@@ -98,7 +98,7 @@ function cleanProse(text) {
     .replace(/<!--[\s\S]*?(?:-->|$)/g, '')
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/<(?:https?|ftp|mailto):[^>]*>/gi, '')
-    .replace(/\b(?:https?|ftp):\/\/[^\s)]+/gi, '')
+    .replace(/\b(?:https?|ftp):\/\/[^\s)]*/gi, '')
     .replace(/\bwww\.[^\s)]+/gi, '')
     .replace(/<\/?[A-Za-z][A-Za-z0-9-]*(?:\s[^<>]*)?\/?>/g, '')
     .replace(/`/g, '')
@@ -114,19 +114,20 @@ function cleanProse(text) {
  */
 export function cleanText(value, max = 600) {
   if (typeof value !== 'string') return '';
-  const flat = value.replace(/```+|~~~+/g, ' ').replace(/\s+/g, ' ').trim();
-  let text = flat
+  let flat = value.replace(/```+|~~~+/g, ' ').replace(/\s+/g, ' ').trim();
+  // Cut first, clean second. A cut inside a code span leaves its opening
+  // backtick without a partner; the split below then reads the rest as prose
+  // and cleans it. Cut after cleaning, the raw content of that span would
+  // reach the comment as bare markup.
+  const cut = flat.length > max;
+  if (cut) flat = flat.slice(0, max - 1).trimEnd();
+  const text = flat
     .split(/(`[^`]+`)/)
     .map((part, index) => (index % 2 === 1 ? defuse(part) : cleanProse(part)))
     .join('')
     .replace(/\s+/g, ' ')
     .trim();
-  if (text.length > max) {
-    text = text.slice(0, max - 1).trimEnd();
-    if ((text.match(/`/g) ?? []).length % 2 === 1) text = text.replace(/`(?=[^`]*$)/, '');
-    text = `${text}…`;
-  }
-  return text;
+  return cut ? `${text}…` : text;
 }
 
 const escapeHtml = text =>

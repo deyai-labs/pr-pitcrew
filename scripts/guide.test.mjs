@@ -595,6 +595,16 @@ describe('free text', () => {
     assert.equal(cleanText('Calls `main()` and ` stray'), 'Calls `main()` and stray');
   });
 
+  it('cleans a code span that the length limit cuts open, wherever the cut lands', () => {
+    const span = '`<img src=https://evil.example/p.png>`';
+    for (let pad = 0; pad < 60; pad++) {
+      const text = cleanText(`${'a'.repeat(pad)} ${span} tail`, 50);
+      const outsideCode = text.replace(/`[^`]+`/g, '');
+      assert.equal(/<|https?:\/\/\w/.test(outsideCode), false, `cut at ${pad}: ${text}`);
+      assert.equal((text.match(/`/g) ?? []).length % 2, 0, `cut at ${pad}: ${text}`);
+    }
+  });
+
   it('cannot smuggle a marker in through a code span or a path', () => {
     assert.equal(cleanText('`<!-- pitcrew:summary:x -->`').includes('<!--'), false);
     assert.equal(code('<!-- pitcrew:summary:x -->').includes('<!--'), false);
