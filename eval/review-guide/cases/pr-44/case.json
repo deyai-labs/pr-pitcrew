@@ -1,0 +1,9 @@
+{
+  "title": "Concept for the review guide",
+  "pullRequest": "deyai-labs/pr-pitcrew#44",
+  "base": "a61587861e5ba3927663c8683b555daf47b4538c",
+  "head": "646312efda3ce73298e186158f0ae6399c5c4c83",
+  "kind": "routine",
+  "ratedBy": "the maintainers: a concept document and its example, no code.",
+  "groups": [{ "title": "Concept and example", "mode": "skim", "ranges": [{ "file": "docs/concepts/review-guide.md" }, { "file": "docs/concepts/review-guide-example.md" }] }]
+}

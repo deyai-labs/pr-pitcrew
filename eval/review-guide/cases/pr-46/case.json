@@ -1,0 +1,9 @@
+{
+  "title": "Record the decisions on the review guide's open questions",
+  "pullRequest": "deyai-labs/pr-pitcrew#46",
+  "base": "702152181b89c4ed4f045f09837d8e5d5fef8ddc",
+  "head": "f9f6585caf06572ed4691803bd73efe0a8aea94a",
+  "kind": "routine",
+  "ratedBy": "the maintainers: a concept document, no code.",
+  "groups": [{ "title": "Decisions", "mode": "skim", "ranges": [{ "file": "docs/concepts/review-guide.md" }] }]
+}
