@@ -27,14 +27,14 @@ flowchart LR
 
 #### Recommended focus areas
 
-| # | Focus area | Category | Recommendation | If this is wrong |
+| # | Focus area | Category | Recommendation | Why the agent suggests it |
 | --- | --- | --- | --- | --- |
-| 1 | [Skip decision in `fetch-diff.mjs`](https://github.com/deyai-labs/pr-pitcrew/pull/43/files#diff-38f1acff8b03b0208de7e60012b63652c5bf074a9cedbfabdf0eb098872a4e97R386) · +67 −4 | Security | ▰▰▰ Read closely | Unreviewed code gets a green check. |
-| 2 | [Base-change guard](https://github.com/deyai-labs/pr-pitcrew/pull/43/files#diff-38f1acff8b03b0208de7e60012b63652c5bf074a9cedbfabdf0eb098872a4e97R221) · +51 −2 | Security, Architecture | ▰▰▰ Read closely | A base switch plus a merge gets past the review. |
-| 3 | [Diff cut in `own-changes.mjs`](https://github.com/deyai-labs/pr-pitcrew/pull/43/files#diff-2d976e6398eee16aabe46ddb2be3b6a8f400d6ae734cc5f74d8e767a077759caR253) · +304 −2 | Domain logic, Architecture | ▰▰▱ Check | An agent misses a change of the pull request. |
-| 4 | [Skip guard in the composite action](https://github.com/deyai-labs/pr-pitcrew/pull/43/files#diff-b1d75cb3bd52a0789483f7a430148e25f041d949b636dee7c45164f4a1e6d0daR279) · +17 −9 | Operations, Architecture | ▰▰▱ Check | A step runs without its inputs. |
+| 1 | [Skip decision in `fetch-diff.mjs`](https://github.com/deyai-labs/pr-pitcrew/pull/43/files#diff-38f1acff8b03b0208de7e60012b63652c5bf074a9cedbfabdf0eb098872a4e97R386) · +67 −4 | 🔒 Security | ▰▰▰ Read closely | The only path that ends green without a review. An error could let unreviewed code pass. |
+| 2 | [Base-change guard](https://github.com/deyai-labs/pr-pitcrew/pull/43/files#diff-38f1acff8b03b0208de7e60012b63652c5bf074a9cedbfabdf0eb098872a4e97R221) · +51 −2 | 🔒 Security · 🏛️ Architecture | ▰▰▰ Read closely | Closes a bypass through a base switch. A gap could reopen it. |
+| 3 | [Diff cut in `own-changes.mjs`](https://github.com/deyai-labs/pr-pitcrew/pull/43/files#diff-2d976e6398eee16aabe46ddb2be3b6a8f400d6ae734cc5f74d8e767a077759caR253) · +304 −2 | 💼 Domain logic · 🏛️ Architecture | ▰▰▱ Check | Decides which changes an agent sees. An error could hide one from an incremental review. |
+| 4 | [Skip guard in the composite action](https://github.com/deyai-labs/pr-pitcrew/pull/43/files#diff-b1d75cb3bd52a0789483f7a430148e25f041d949b636dee7c45164f4a1e6d0daR279) · +17 −9 | ⚙️ Operations · 🏛️ Architecture | ▰▰▱ Check | 11 steps now depend on one output. A missing condition could run a step without its inputs. |
 
-Also changed, routine, to skim:
+Also changed, 🧹 routine, to skim:
 [5 · Tests](https://github.com/deyai-labs/pr-pitcrew/pull/43/files#diff-726d2f77946a46ae5ddd8c42ba866b38cb83f09801224ee81187486d7cc64efbR317) +423 ·
 [6 · Docs, changelog, version](https://github.com/deyai-labs/pr-pitcrew/pull/43/files#diff-8c1b3cc3454395d4e4bf3ab7f53af8869b940cb2ea83a8f8c44e20b19faea443R304) +54 −6
 
@@ -42,8 +42,10 @@ Reading load: **+118 −6** to read closely · +321 −11 to check · +477 −6 
 
 #### Focus areas in suggested order
 
+##### ▰▰▰ Read closely
+
 <details open>
-<summary><b>1 · Skip decision in <code>fetch-diff.mjs</code></b> · Security · ▰▰▰ Read closely · +67 −4</summary>
+<summary><b>1 · Skip decision in <code>fetch-diff.mjs</code></b> · 🔒 Security · +67 −4</summary>
 
 **Context.** `fetch-diff.mjs` runs before each review agent. It decides which diff the agent sees:
 the whole pull request, or only the commits since the last published review.
@@ -52,8 +54,9 @@ the whole pull request, or only the commits since the last published review.
 check stays green. This happens only when the new commits add nothing of the pull request's own and
 the last published review was green.
 
-**Why this recommendation.** Consequence **severe**: unreviewed code passes the gate with a green
-check. Safeguards **none**: no test covers the decision in `main()`.
+**Why the agent suggests it.** This is the only path that ends green without a review. An error here
+could let unreviewed code pass the gate. Possible consequence: **severe**. Safeguards found:
+**none**, no test seems to cover the decision in `main()`.
 
 ```diff
 +      if (nothingNew) {
@@ -104,7 +107,7 @@ flowchart TD
 </details>
 
 <details open>
-<summary><b>2 · Base-change guard</b> · Security, Architecture · ▰▰▰ Read closely · +51 −2</summary>
+<summary><b>2 · Base-change guard</b> · 🔒 Security · 🏛️ Architecture · +51 −2</summary>
 
 **Context.** The cut and the skip compare against the pull request diff. GitHub computes that diff
 against the base branch the pull request names now, and the author can change that branch.
@@ -113,9 +116,9 @@ against the base branch the pull request names now, and the author can change th
 If the base branch changed since the last review, or the events cannot be read in full, neither rule
 applies.
 
-**Why this recommendation.** Consequence **severe**: a base switch plus a merge gets code past the
-review. Safeguards **partial**: four tests cover `baseChangedSince`, no test covers the paging in
-`baseMovedSince`.
+**Why the agent suggests it.** The guard closes a bypass: switch the base, merge that branch, switch
+back. A gap here could reopen it. Possible consequence: **severe**. Safeguards found: **partial**,
+four tests cover `baseChangedSince`, none seems to cover the paging in `baseMovedSince`.
 
 **Architecture.** New use of an external API: the issue events of the pull request, up to 10 pages of
 100 per run.
@@ -152,8 +155,10 @@ review. Safeguards **partial**: four tests cover `baseChangedSince`, no test cov
 
 </details>
 
+##### ▰▰▱ Check
+
 <details>
-<summary><b>3 · Diff cut in <code>own-changes.mjs</code></b> · Domain logic, Architecture · ▰▰▱ Check · +304 −2</summary>
+<summary><b>3 · Diff cut in <code>own-changes.mjs</code></b> · 💼 Domain logic · 🏛️ Architecture · +304 −2</summary>
 
 **Context.** An incremental review looks only at the commits since the last review. When `main` was
 merged in between, that range also holds changes from other pull requests.
@@ -162,9 +167,10 @@ merged in between, that range also holds changes from other pull requests.
 diff does not make. Added lines match by right-hand line number. A removed line stays when the pull
 request diff changes the same run of lines, or removes the same text in the file.
 
-**Why this recommendation.** Consequence **moderate**: an agent misses a change of the pull request in
-an incremental review. The pull request still shows you the full diff. Safeguards **partial**: 11
-tests with real `git diff` output cover the two matching rules, not every path of the parser.
+**Why the agent suggests it.** This code decides which changes an agent sees. An error could hide a
+change of the pull request from an incremental review, but not from you: the pull request still
+shows the full diff. Possible consequence: **moderate**. Safeguards found: **partial**, 11 tests with
+real `git diff` output cover the two matching rules, not every path of the parser.
 
 **Architecture.** New module with pure functions and no I/O, one module and one test file as in the
 rest of `scripts/`. Decision: show a line too many, never hide one. The rationale is in
@@ -201,7 +207,7 @@ rest of `scripts/`. Decision: show a line too many, never hide one. The rational
 </details>
 
 <details>
-<summary><b>4 · Skip guard in the composite action</b> · Operations, Architecture · ▰▰▱ Check · +17 −9</summary>
+<summary><b>4 · Skip guard in the composite action</b> · ⚙️ Operations · 🏛️ Architecture · +17 −9</summary>
 
 **Context.** `actions/agent/action.yml` is the composite action that runs every agent, one step after
 the other: fetch the inputs, build the configuration, run the agent, publish the report.
@@ -209,8 +215,9 @@ the other: fetch the inputs, build the configuration, run the agent, publish the
 **What changes.** The step `Fetch the diff` gets the id `diff`. Every later step gets the condition
 `steps.diff.outputs.skip != 'true'`.
 
-**Why this recommendation.** Consequence **moderate**: a step without the condition runs without its
-inputs. Safeguards **none**: no test checks the conditions. The change itself is mechanical.
+**Why the agent suggests it.** The change is mechanical, but 11 steps now depend on one output. A
+missing condition could run a step without its inputs. Possible consequence: **moderate**.
+Safeguards found: **none**, no test seems to check the conditions.
 
 **Architecture.** New contract between a script and the action: `fetch-diff.mjs` writes the step
 output `skip`, and 11 steps read it. A step added later must read it too. A green check now has a
@@ -242,8 +249,10 @@ second meaning: "nothing new to review", next to "reviewed, nothing at the gate"
 
 </details>
 
+##### ▰▱▱ Skim
+
 <details>
-<summary><b>5 · Tests</b> · Routine · ▰▱▱ Skim · +423 −0</summary>
+<summary><b>5 · Tests</b> · 🧹 Routine · +423 −0</summary>
 
 **Context.** The tests for focus areas 2 and 3. Their names state the rules.
 
@@ -253,7 +262,7 @@ second meaning: "nothing new to review", next to "reviewed, nothing at the gate"
 </details>
 
 <details>
-<summary><b>6 · Docs, changelog, version</b> · Routine · ▰▱▱ Skim · +54 −6</summary>
+<summary><b>6 · Docs, changelog, version</b> · 🧹 Routine · +54 −6</summary>
 
 **Context.** `docs/how-it-works.md` describes the cut, the skip and the guard. `CHANGELOG.md` and
 `package.json` move to 1.3.1.
@@ -266,8 +275,34 @@ second meaning: "nothing new to review", next to "reviewed, nothing at the gate"
 
 **Coverage.** 8 of 8 files and 939 of 939 changed lines are in a group. Not assessed: nothing.
 
-<sub>Recommendations by a model, not a verified or complete review. Every line stays in the diff. ·
-Code excerpts are copied from the diff, not written by the model. · Describes `812d742` · 8 of 8
-changed files opened · [Workflow run](https://github.com/deyai-labs/pr-pitcrew/actions) · Rate this
-guide with 👍 or 👎</sub>
+<details>
+<summary>What the categories and reading modes mean</summary>
+
+| Category | Covers |
+| --- | --- |
+| 💼 Domain logic | Business rules with business risk: calculations, prices, contracts, states of business objects |
+| 👥 UX | Behaviour users see: flows, forms, error messages, accessibility |
+| 🔒 Security | Login, permissions, input handling, secrets, trust boundaries, new dependencies |
+| 🪪 Privacy | Personal data: collected, stored, shared, logged or deleted |
+| 🗄️ Data | Stored data: schema, migrations, deletions, consistency |
+| 🏛️ Architecture | Structure: module boundaries, new components and dependencies, contracts, public APIs, decisions |
+| ⚙️ Operations | Deployment, CI/CD, configuration, performance, monitoring, cost |
+| 🧹 Routine | Tests, docs, formatting, refactoring without new behaviour, generated code |
+
+| Reading mode | When |
+| --- | --- |
+| ▰▰▰ Read closely | A severe consequence is possible, and little protects against it. |
+| ▰▰▱ Check | A moderate consequence is possible, or a severe one with strong protection. |
+| ▰▱▱ Skim | A minor consequence at most, or a moderate one with strong protection. |
+
+The agent answers fixed questions for each group. The reading mode follows from a fixed table, not
+from a choice of the agent. Path rules can raise it. See
+[how the guide rates changes](review-guide.md#65-einstufung-und-normalisierung).
+
+</details>
+
+<sub>Recommendations by an AI agent, not a verified or complete review. Every line stays in the diff.
+· Code excerpts are copied from the diff, not written by the agent. · Describes `812d742` · 8 of 8
+changed files opened · All ratings and corrections are in the
+[run summary](https://github.com/deyai-labs/pr-pitcrew/actions).</sub>
 <!-- pitcrew:summary:review-guide -->
