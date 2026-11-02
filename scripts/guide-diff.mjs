@@ -123,13 +123,19 @@ export function parseDiff(text) {
 
   for (const entry of files) {
     if (entry.status === 'deleted') entry.path = entry.oldPath || entry.path;
+    // A file emptied without being deleted (`@@ -1,3 +0,0 @@`) has no new
+    // side either. Its lines are named by their old numbers, like a deletion.
+    const emptied = entry.hunks.length > 0 && entry.hunks.every(hunk => hunk.lines.every(line => line.kind === '-'));
+    entry.side = entry.status === 'deleted' || emptied ? 'old' : 'new';
   }
 
-  return { files, truncated: /\*\*\* TRUNCATED at \d+ bytes/.test(source) };
+  // Only where fetch-diff.mjs writes it: on a line of its own, at the very end.
+  // The same words inside a changed line are content, not a cut.
+  return { files, truncated: /\n\*\*\* TRUNCATED at \d+ bytes\.[^\n]*\*\*\*\n?$/.test(source) };
 }
 
-/** Old-side numbers for a deleted file, new-side numbers for every other. */
-export const sideOf = file => (file?.status === 'deleted' ? 'old' : 'new');
+/** Old-side numbers for a deleted or emptied file, new-side numbers for every other. */
+export const sideOf = file => file?.side ?? (file?.status === 'deleted' ? 'old' : 'new');
 
 /**
  * Whether a diff line falls in `[from, to]`. Without `from`, the whole file.

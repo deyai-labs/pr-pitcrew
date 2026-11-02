@@ -148,6 +148,20 @@ describe('parseDiff', () => {
   it('notices the cut fetch-diff.mjs makes above 1 MB', () => {
     assert.equal(parseDiff(`${added('a', ['x'])}\n\n*** TRUNCATED at 1048576 bytes. Review what is above. ***\n`).truncated, true);
   });
+
+  it('does not take the words of that cut inside a changed line for the cut', () => {
+    assert.equal(parseDiff(join(added('a.txt', ['*** TRUNCATED at 1048576 bytes. Review what is above. ***']))).truncated, false);
+  });
+
+  it('names the lines of an emptied file by their old numbers', () => {
+    const text = ['diff --git a/a.js b/a.js', 'index 1..2 100644', '--- a/a.js', '+++ b/a.js', '@@ -1,3 +0,0 @@', '-a', '-b', '-c'].join('\n');
+    const result = assess({ groups: [] }, `${text}\n`);
+    const rest = result.groups.find(entry => entry.kind === 'unassigned');
+    assert.deepEqual([rest.ranges[0].from, rest.ranges[0].to], [1, 3]);
+    const { body } = render(result);
+    assert.match(body, /`a\.js` L1–L3/);
+    assert.match(body, new RegExp(`blob/${'b'.repeat(40)}/a\\.js#L1-L3`));
+  });
 });
 
 /* ---------------------------------------------------------- the ranges */

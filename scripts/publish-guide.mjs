@@ -23,7 +23,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 import { shapeReport } from './report.mjs';
-import { parseDiff } from './guide-diff.mjs';
+import { parseDiff, sideOf } from './guide-diff.mjs';
 import {
   assessGuide,
   code,
@@ -112,7 +112,8 @@ export function inWorkspace(workspace) {
   };
 }
 
-function client(env) {
+/** A small GitHub client. A body that is not JSON, such as a proxy's error page, gives `json: null`. */
+export function client(env) {
   const base = env.GITHUB_API_URL ?? 'https://api.github.com';
   return async (path, init = {}) => {
     const response = await fetch(`${base}${path}`, {
@@ -262,7 +263,7 @@ export async function publishGuide(env = process.env) {
     cutFiles,
   });
 
-  const needsBase = diff.files.some(file => file.status === 'deleted');
+  const needsBase = diff.files.some(file => sideOf(file) === 'old');
   const baseSha = needsBase && !dryRun ? await mergeBase(api, env) : (env.GUIDE_BASE_SHA ?? '').trim();
 
   let outdated = '';

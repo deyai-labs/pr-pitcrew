@@ -14,7 +14,7 @@
  */
 
 import { markOutdated } from './guide.mjs';
-import { describedCommit, listComments, outdatedSentence, pickGuideTarget } from './publish-guide.mjs';
+import { client, describedCommit, listComments, outdatedSentence, pickGuideTarget } from './publish-guide.mjs';
 
 /** The new body, or null when there is nothing to change. */
 export function outdatedBody(body, after) {
@@ -33,20 +33,7 @@ async function main() {
     process.exit(1);
   }
 
-  const api = async (path, init = {}) => {
-    const response = await fetch(`${process.env.GITHUB_API_URL ?? 'https://api.github.com'}${path}`, {
-      ...init,
-      headers: {
-        authorization: `Bearer ${token}`,
-        accept: 'application/vnd.github+json',
-        'x-github-api-version': '2022-11-28',
-        'user-agent': 'pr-pitcrew-guide-outdated',
-        ...(init.body ? { 'content-type': 'application/json' } : {}),
-      },
-    });
-    const text = await response.text();
-    return { ok: response.ok, status: response.status, text, json: text ? JSON.parse(text) : null };
-  };
+  const api = client(process.env);
 
   const { existing, ours } = pickGuideTarget(await listComments(api, repository, prNumber), { title, runId: '' });
   if (!ours) {

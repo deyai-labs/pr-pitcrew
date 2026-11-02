@@ -131,8 +131,8 @@ answers by a fixed table, and path rules of the repository can raise it.
 
 Every place in the guide is a range: `{ "file": "path/from/the/root", "from": 12, "to": 30 }`.
 
-- `from` and `to` are lines of the **new** version of the file. For a file the pull request deletes,
-  they are lines of the old version.
+- `from` and `to` are lines of the **new** version of the file. For a file the pull request deletes
+  or empties, they are lines of the old version.
 - Without `from` and `to`, a range is the whole file. Use that for routine groups.
 - A range must touch a hunk of the diff. The harness removes a range outside the diff.
 - You never write a link, a line count or a line of code. The harness builds links and numbers from

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { parseDiff } from './guide-diff.mjs';
-import { describedCommit, filesBehindTheCut, inWorkspace, pickGuideTarget, publishGuide } from './publish-guide.mjs';
+import { client, describedCommit, filesBehindTheCut, inWorkspace, pickGuideTarget, publishGuide } from './publish-guide.mjs';
 import { outdatedBody } from './guide-outdated.mjs';
 
 const RUN = '/actions/runs/42';
@@ -163,5 +163,18 @@ describe('a guide cut to the limit', () => {
     assert.ok(body.endsWith(marker));
     assert.equal(describedCommit(body), 'abc1234');
     assert.ok(outdatedBody(body, 'def5678000'));
+  });
+});
+
+describe('client', () => {
+  it('reads an error page that is not JSON as a failed request, not a crash', async () => {
+    const real = globalThis.fetch;
+    globalThis.fetch = async () => new Response('<html>502 Bad Gateway</html>', { status: 502 });
+    try {
+      const result = await client({ GITHUB_TOKEN: 't' })('/repos/o/r/issues/1/comments');
+      assert.deepEqual([result.ok, result.status, result.json], [false, 502, null]);
+    } finally {
+      globalThis.fetch = real;
+    }
   });
 });
