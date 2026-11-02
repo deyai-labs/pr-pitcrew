@@ -1,6 +1,6 @@
 # Konzept: Review-Guide-Agent
 
-Status: Entwurf · Stand: 2026-11-02
+Status: entschieden, bereit zur Umsetzung (Issue [deyai-labs/pr-pitcrew#45](https://github.com/deyai-labs/pr-pitcrew/issues/45)) · Stand: 2026-11-02
 
 [TOC]
 
@@ -397,12 +397,13 @@ Die Stufen des Schutzes:
 
 | Stufe | Bedeutung |
 | --- | --- |
-| `strong` | Tests prüfen genau das Szenario, oder ein angenommenes ADR trägt die Entscheidung. Die Änderung ist umkehrbar. |
-| `partial` | Tests prüfen einen Teil des Szenarios, oder ein ADR ist nur vorgeschlagen. |
+| `strong` | Tests prüfen genau das Szenario, oder ein ADR aus dem Base-Branch trägt die Entscheidung. Die Änderung ist umkehrbar. |
+| `partial` | Tests prüfen einen Teil des Szenarios, oder ein ADR kommt erst mit diesem PR. |
 | `none` | Kein Test prüft das Szenario, und kein ADR trägt die Entscheidung. |
 
 Für Architektur ist ein ADR, was ein Test für Code ist. Ein neues Redis ohne ADR ergibt: Folge
-`severe`, Schutz `none`, also **Genau lesen**. Mit angenommenem ADR ergibt es **Prüfen**.
+`severe`, Schutz `none`, also **Genau lesen**. Mit einem ADR, das schon im Base-Branch liegt, ergibt
+es **Prüfen**.
 
 **3. Der Harness leitet den Modus ab.** Das Modell wählt den Modus nie selbst.
 
@@ -418,12 +419,15 @@ Vorher korrigiert der Harness die Antworten, in dieser Reihenfolge:
 1. `severe` oder `moderate` ohne Szenario wird `minor`. Das bremst Übertreibung.
 2. `strong` oder `partial` ohne eine Datei unter `evidence`, die im Repository existiert, wird `none`.
    Das bremst Verharmlosung.
-3. `reversible: false` setzt den Schutz auf `none`. Eine Migration oder eine gelöschte Datei fängt
+3. Belege, die dieser PR selbst hinzufügt oder ändert, zählen höchstens als `partial`. Tests und ADRs
+   aus dem Base-Branch behalten ihr Gewicht.
+4. `reversible: false` setzt den Schutz auf `none`. Eine Migration oder eine gelöschte Datei fängt
    kein Test mehr auf.
-4. Danach gelten die Untergrenzen für feste Pfade (6.7).
+5. Danach gelten die Untergrenzen für feste Pfade (6.7).
 
 Bei Agenten-PRs schreibt oft derselbe Agent Code und Tests. Tests können dann denselben Denkfehler
-enthalten. Darum ist `strong` bei `severe` nur **Prüfen** und nicht **Überfliegen**.
+enthalten. Regel 3 verhindert, dass ein Agent seine Einstufung mit eigenen Tests senkt. Darum ist
+`severe` nur mit Belegen aus dem Base-Branch **Prüfen**, sonst immer **Genau lesen**.
 
 **4. "Keine Schwerpunkte" ist ein normales Ergebnis.** Der Prompt sagt: Die meisten PRs haben keinen
 Schwerpunkt zum genauen Lesen. Der Rahmen hat dafür eine eigene Form:
@@ -546,7 +550,7 @@ selbst ausrechnen oder nachschlagen kann.
 | Abdeckung | Jede geänderte Zeile gehört zu mindestens einer Gruppe. | Rest in eine Gruppe "Nicht zugeordnet" mit Lesemodus **Prüfen** |
 | Kategorien | Eine bis drei aus der Liste, `routine` allein | Unbekannte entfernen. Bleibt keine, bekommt die Gruppe **Prüfen**. |
 | Sammelgruppen | Höchstens drei Gruppen mit `routine` (6.11) | Überzählige zu "Other routine changes" zusammenlegen |
-| Antworten | Regeln 1 bis 3 aus 6.5: Szenario, Belege, Umkehrbarkeit | Folge oder Schutz anpassen, mit Hinweis |
+| Antworten | Regeln 1 bis 4 aus 6.5: Szenario, Belege, Herkunft der Belege, Umkehrbarkeit | Folge oder Schutz anpassen, mit Hinweis |
 | Lesemodus | Aus Folge und Schutz nach der Tabelle in 6.5 | Immer berechnet, nie vom Modell |
 | Untergrenze | Pfadregeln heben den Lesemodus auf ein Minimum (unten). | Lesemodus anheben, mit Hinweis |
 | Reihenfolge | `order` nennt jede Gruppe genau einmal. | Fehlende Gruppen nach Lesemodus anhängen |
@@ -564,8 +568,13 @@ selbst ausrechnen oder nachschlagen kann.
 **/action.yml          check
 **/Dockerfile          check
 **/migrations/**       check
+**/*.tf                check
+**/CODEOWNERS          check
 dependencies           check
 ```
+
+Terraform ändert Infrastruktur, `CODEOWNERS` ändert, wer prüfen muss. Die Voreinstellung nutzt nur
+`check`. Untergrenzen fangen Unterschätzung ab. Mit `read` würden sie die Normalisierung aushebeln.
 
 `dependencies` ist ein Sonderfall. Die Regel greift, wenn ein Manifest oder Lockfile eine
 Abhängigkeit hinzufügt, entfernt oder ändert.
@@ -721,10 +730,10 @@ Sammelgruppen wie "Tests", "Docs" oder "Mechanical rename". Daraus folgt:
 **Der Guide versteckt keinen Schwerpunkt.** Eine feste Obergrenze für Schwerpunkte gibt es nicht. Sie
 würde genau das verstecken, was der Reviewer sehen soll. Die kognitive Last begrenzen andere Mittel:
 
-1. **Offene Warnung.** Bei mehr als 7 Gruppen mit **Genau lesen** oder mehr als der Hälfte der Zeilen
-   dort sagt die Überschrift: "This pull request has 12 areas to read closely. Consider splitting
-   it." Die Schwelle ist ein Startwert. Die Daten aus 8.1 kalibrieren sie. Ein konkreter Vorschlag
-   zum Teilen ist Erweiterung E9.
+1. **Offene Warnung.** Bei mehr als 7 Gruppen oder mehr als 400 geänderten Zeilen mit **Genau lesen**
+   sagt die Überschrift: "This pull request has 12 areas to read closely. Consider splitting it."
+   400 Zeilen sind etwa eine Review-Sitzung.[^smartbear] Beide Werte sind Startwerte. Die Daten aus
+   8.1 kalibrieren sie. Ein konkreter Vorschlag zum Teilen ist Erweiterung E9.
 2. **Eine Zeile pro Schwerpunkt.** Die Tabelle oben bleibt vollständig. Details stehen in Blöcken,
    nach Lesemodus geordnet.
 3. **Überlauf.** Passt der Kommentar nicht in 60.000 Zeichen, kürzt der Harness nach 6.10. Reicht das
@@ -780,7 +789,7 @@ beschönigen.** Ein Satz in der Beschreibung wie "nur Doku, bitte überfliegen" 
 | Auslöser | MVP |
 | --- | --- |
 | `opened`, `reopened`, `ready_for_review` | ja |
-| `synchronize` (Push) | ja, abschaltbar mit `PITCREW_GUIDE_ON_PUSH=false` |
+| `synchronize` (Push) | ja, ein neuer Push bricht den laufenden Guide ab. Abschaltbar mit `PITCREW_GUIDE_ON_PUSH=false`. |
 | Kommentar `/guide` | ja |
 | Draft-PR | nein, wie bei den anderen Agenten |
 
@@ -809,6 +818,9 @@ entstand.
 - [ ] Ein PR mit 80 Dateien und zwei kritischen Stellen ergibt zwei Schwerpunkte und höchstens drei
       Sammelgruppen.
 - [ ] Die Job Summary zeigt für jede Gruppe die Antworten, die Korrekturen und den Modus.
+- [ ] Ein Test, den der PR selbst hinzufügt, zählt höchstens als `partial`.
+- [ ] Bei mehr als 7 Gruppen oder mehr als 400 Zeilen mit **Genau lesen** rät die Überschrift zum
+      Teilen.
 - [ ] Ein Push aktualisiert den Kommentar. Haken an unverändertem Code bleiben.
 - [ ] Ein ungültiges Diagramm fehlt, der Rest erscheint.
 - [ ] Ein PR mit 300 Dateien ergibt einen gekürzten Guide unter 65.536 Zeichen.
@@ -909,7 +921,7 @@ Test-PRs dient beiden Zwecken und dem Kalibrier-Satz aus 6.5.
 | --- | --- | --- | --- |
 | E1 | **Wegweiser im Diff.** Ein Check Run setzt eine `notice`-Annotation an den Anfang jedes Schwerpunkts. Text: Gruppe, Lesemodus, Link zum Guide. | Weg vom Code zurück zum Guide. Hilft auch, wer direkt in "Files changed" einsteigt. | gering, braucht `checks: write` und App-Token |
 | E2 | **Seit deinem Review.** Ein Abschnitt pro Reviewer: Was hat sich seit seinem letzten Review geändert? Quelle: `commit_id` seiner Reviews. | Ab der zweiten Runde liest niemand alles neu. Vorbild: Wingdiff, Copilot. | mittel |
-| E3 | **Pitcrew im Verbund.** Befunde von `bug-review` und `security-review` erscheinen in ihrer Gruppe. Umgekehrt bekommen die Review-Agenten die Schwerpunkte als Fokus. | Ein Ort für alles. Agenten suchen gezielter (F5). | mittel |
+| E3 | **Pitcrew im Verbund.** Befunde von `bug-review` und `security-review` erscheinen in ihrer Gruppe. Umgekehrt bekommen die Review-Agenten die Schwerpunkte als zusätzlichen Fokus: Sie lesen weiter den ganzen Diff und erhalten nur Strukturdaten, die der Harness geprüft hat, keinen Freitext. | Ein Ort für alles. Agenten suchen gezielter (F5). | mittel |
 | E4 | **Regeln des Repositorys als Datei.** Eine Datei im Base-Branch statt der Variable: Untergrenzen, eigene Kategorien mit Ankern (zum Beispiel "Compliance") und die Schwelle für große PRs. Gelesen wie in Issue [deyai-labs/pr-pitcrew#33](https://github.com/deyai-labs/pr-pitcrew/issues/33). Dazu `CODEOWNERS`. | Wissen des Teams fließt in die Einstufung. | gering |
 | E5 | **Feste Risikosignale.** Fehlerhistorie pro Pfad, Hotspots, fehlende gemeinsame Änderung (CodeScene), Zahl der Aufrufer (Kodus). Testabdeckung der geänderten Zeilen ersetzt die Angabe `evidence` des Modells. | Die Einstufung stützt sich weniger auf das Modell. | mittel bis hoch |
 | E6 | **Mehr Diagramme.** Sequenz für neue Aufrufketten, Ablauf vorher und nachher (Wunsch aus PR-Agent #1919), ER für Datenmodelle. Anklickbare Knoten, wenn `click` sich als stabil erweist. | Passendes Bild je Art der Änderung | mittel |
@@ -922,23 +934,20 @@ Test-PRs dient beiden Zwecken und dem Kalibrier-Satz aus 6.5.
 Empfohlene Folge: E1, E2 und E3 zuerst. Sie lösen die zwei Grenzen aus 5.3 und nutzen, was Pitcrew
 schon hat.
 
-## 10. Offene Fragen
+## 10. Entscheidungen
 
-1. **Name.** Vorschlag: `review-guide`, Check `Pitcrew / Review Guide`, Befehl `/guide`. Alternativen:
-   `review-map`, `briefing`.
-2. **Sprache des Rahmens.** Der Rahmen ist hier größer als bei den anderen Agenten. Nach ADR 6 mischt
-   ein deutscher Guide mehr Sprachen. Bleibt es bei ADR 6, oder bekommt der Guide einen übersetzten
-   Rahmen?
-3. **Auslöser.** Jeder Push (Vorschlag) oder nur Öffnen und `/guide`?
-4. **Prüfpunkte als Aufgabenliste.** Die Studien zu Checklisten sind gemischt (F5, F6). Behalten wir
-   die Haken, oder reicht eine einfache Liste?
-5. **Untergrenzen.** Passt die Voreinstellung in 6.7? Repositories können sie per Variable ersetzen.
-6. **Reihenfolge der Agenten.** Läuft der Guide vor `bug-review`, damit E3 dessen Fokus setzen kann?
-   Das verlängert die Zeit bis zum ersten Befund.
-7. **Matrix.** Ist `severe` mit Schutz `strong` als **Prüfen** richtig? Die Alternative: `severe`
-   heißt immer **Genau lesen**.
-8. **Schwelle für große PRs.** Ab wie vielen Gruppen mit **Genau lesen** rät der Guide zum Teilen?
-   Vorschlag in 6.11: mehr als 7 oder mehr als die Hälfte der Zeilen.
+Die Umsetzung entscheidet diese Punkte nicht neu.
+
+| # | Frage | Entscheidung | Grund |
+| --- | --- | --- | --- |
+| 1 | Name | `review-guide`, Check `Pitcrew / Review Guide`, Befehl `/guide` | Passt zu `bug-review` und `security-review`. "Guide" klingt nicht nach einem Urteil. |
+| 2 | Sprache des Rahmens | ADR 6 gilt: Rahmen englisch, Texte des Agenten in `PITCREW_OUTPUT_LANGUAGE` | Eine Übersetzung nur für den Guide wäre ein Sonderweg. Stört die Mischung, regelt ein neues ADR die Übersetzung für alle Agenten. |
+| 3 | Auslöser | Jeder Push. Ein neuer Push bricht den laufenden Guide ab. Abschaltbar mit `PITCREW_GUIDE_ON_PUSH=false`. | Ein veralteter Guide zeigt auf alte Zeilen und alten Code. |
+| 4 | Prüfpunkte | Als Aufgabenliste mit Haken | Prüfpunkte sind spezifische Aussagen, keine generische Checkliste. Haken entlasten das Gedächtnis (Z1). 8.1 misst die Nutzung. |
+| 5 | Untergrenzen | Liste aus 6.7 mit `**/*.tf` und `**/CODEOWNERS`, alle mit `check` | Beide ändern Infrastruktur oder Review-Rechte. `read` als Voreinstellung würde die Normalisierung aushebeln. |
+| 6 | Reihenfolge der Agenten | Keine. Guide, `bug-review` und `security-review` laufen parallel und unabhängig. | Unabhängige Prüfer, keine Wartezeit, kein zusätzlicher Weg für Manipulation. E3 bleibt eine Erweiterung. |
+| 7 | Matrix | Bleibt. Belege, die der PR selbst hinzufügt oder ändert, zählen höchstens als `partial` (6.5, Regel 3). | Ein Agent kann seine Einstufung nicht mit eigenen Tests senken. Tests und ADRs aus dem Base-Branch behalten ihr Gewicht. |
+| 8 | Schwelle für große PRs | Mehr als 7 Gruppen oder mehr als 400 Zeilen mit **Genau lesen** (6.11) | Die Regel "mehr als die Hälfte der Zeilen" hätte schon bei kleinen PRs gegriffen. 400 Zeilen sind etwa eine Review-Sitzung. |
 
 ## Quellen
 
@@ -960,6 +969,7 @@ erreichbar. Angaben dazu stammen aus Suchauszügen und echten Kommentaren auf ö
 [^metadrs]: Meta Engineering: Diff Risk Score (DRS), 2025-08-06. <https://engineering.fb.com/2025/08/06/developer-tools/diff-risk-score-drs-ai-risk-aware-software-development-meta/>
 [^radar]: Meta: RADAR, automatisches Review risikoarmer Diffs. Preprint, 2026. <https://arxiv.org/abs/2605.30208>
 [^metaexpl]: Studie zur Erklärbarkeit von Risikowerten bei Meta. Preprint, 2026. <https://www.alphaxiv.org/abs/2607.02782>
+[^smartbear]: SmartBear und Cisco: Fallstudie mit 2.500 Reviews. Herstellerdaten, nicht begutachtet. <https://www.stickyminds.com/article/largest-case-study-code-reviews-ever>
 [^faros]: Faros AI: The AI Productivity Paradox Report 2025. Herstellerdaten. <https://www.faros.ai/blog/ai-productivity-paradox-report-2025>
 [^aidev]: H. Li, H. Zhang, A. E. Hassan: The Rise of AI Teammates in Software Engineering 3.0. Preprint, 2025. <https://arxiv.org/abs/2507.15003>
 [^watanabe]: M. Watanabe et al.: On the Use of Agentic Coding: An Empirical Study of Pull Requests on GitHub. TOSEM. <https://arxiv.org/abs/2509.14745>
