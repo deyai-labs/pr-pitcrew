@@ -15,6 +15,7 @@ import {
   checkPublishedReport,
   matchesAgentCheck,
   pickAgentCheck,
+  pullRequestAtHead,
   walkToPublishedReview,
 } from './fetch-diff.mjs';
 
@@ -220,5 +221,30 @@ describe('baseChangedSince', () => {
   it('counts a review with no start time as changed', () => {
     assert.equal(baseChangedSince([], ''), true);
     assert.equal(baseChangedSince([], undefined), true);
+  });
+});
+
+describe('pullRequestAtHead', () => {
+  it('pairs the diff with the head commit it describes', async () => {
+    const pull = { head: { sha: 'h1' }, base: { sha: 'b1', ref: 'main' } };
+    const found = await pullRequestAtHead(async () => pull, async () => 'diff text');
+    assert.deepEqual(found, { text: 'diff text', head: 'h1', base: 'b1', baseRef: 'main' });
+  });
+
+  it('tries again when a push lands between the two reads', async () => {
+    const heads = ['h1', 'h2', 'h2', 'h2'];
+    let diffs = 0;
+    const found = await pullRequestAtHead(
+      async () => ({ head: { sha: heads.shift() }, base: { sha: 'b', ref: 'main' } }),
+      async () => `diff ${++diffs}`,
+    );
+    assert.equal(found.head, 'h2');
+    assert.equal(found.text, 'diff 2');
+  });
+
+  it('gives up on a head that never holds still, and on a failed fetch', async () => {
+    let n = 0;
+    assert.equal(await pullRequestAtHead(async () => ({ head: { sha: `h${n++}` } }), async () => 'x'), null);
+    assert.equal(await pullRequestAtHead(async () => ({ head: { sha: 'h' } }), async () => null), null);
   });
 });

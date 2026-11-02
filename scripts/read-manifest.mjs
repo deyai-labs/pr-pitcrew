@@ -9,7 +9,7 @@
  * which is the state a fourth agent copies and a fifth quietly diverges from.
  *
  * Environment: PITCREW_HOME, AGENT. Writes: title, report, wants-diff,
- * wants-issue, wants-target, command, check.
+ * wants-issue, wants-target, command, check, diff-scope.
  */
 
 import { appendFileSync } from 'node:fs';
@@ -44,6 +44,9 @@ const out = {
   'wants-diff': String(inputs.has('diff')),
   'wants-issue': String(inputs.has('issue')),
   'wants-target': String(inputs.has('target')),
+  // `pull-request` for an agent that describes the whole pull request on every
+  // run, such as the review guide; `incremental` (the default) for a review.
+  'diff-scope': manifest.diffScope ?? 'incremental',
 };
 
 for (const [key, value] of Object.entries(out)) console.log(`${key}: ${value}`);

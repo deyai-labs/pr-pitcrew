@@ -48,6 +48,12 @@
  * guess. `/review` is how a human asks for the whole pull request to be
  * looked at again.
  *
+ * An agent whose manifest says `diffScope: "pull-request"` - the review guide -
+ * skips all of that. It describes the whole pull request on every run, so it
+ * always gets the pull request diff, uncut in FULL_DIFF_FILE for the harness
+ * and cut at 1 MB in DIFF_FILE for the agent, and the head commit the diff
+ * describes. See `wholePullRequest` below.
+ *
  * The same parse that writes the diff also writes the list of paths the agent
  * has to open. The hunk is three lines of context; the file is what the change
  * means. Without that list, nothing downstream can tell a review that opened
@@ -322,10 +328,74 @@ function skip(base, after) {
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${message}\n`);
 }
 
+/**
+ * The pull request diff, together with the head commit it describes.
+ *
+ * The diff endpoint answers for whatever the head is at that moment. A push in
+ * between would pair the diff of one commit with the SHA of another, and every
+ * permalink of the guide would point at the wrong lines. So the head is read
+ * before and after, and a mismatch is tried again.
+ */
+export async function pullRequestAtHead(getJson, getDiff, attempts = 3) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const before = await getJson();
+    const text = await getDiff();
+    const after = await getJson();
+    if (text === null || !before?.head?.sha) return null;
+    if (before.head.sha === after?.head?.sha) {
+      return { text, head: before.head.sha, base: before.base?.sha ?? '', baseRef: before.base?.ref ?? '' };
+    }
+  }
+  return null;
+}
+
+function writeOutputs(text, scope, extraEnv = '') {
+  const cut = text.length > LIMIT ? `${text.slice(0, LIMIT)}\n\n*** TRUNCATED at ${LIMIT} bytes. Review what is above and say in the report that the diff was cut. ***\n` : text;
+  writeFileSync(diffFile, cut);
+  console.log(`Diff: ${cut.split('\n').length} lines, ${cut.length} bytes - ${scope}`);
+
+  const changedFile =
+    (process.env.CHANGED_FILES ?? '').trim() || join(dirname(diffFile), 'changed-files.txt');
+  const changed = changedFilesFromDiff(cut);
+  writeFileSync(changedFile, formatChangedFiles(changed));
+  console.log(`Changed files to open: ${changed.length} (${changedFile})`);
+
+  if (process.env.GITHUB_ENV) {
+    appendFileSync(
+      process.env.GITHUB_ENV,
+      `DIFF_FILE=${diffFile}\nDIFF_SCOPE=${scope}\nCHANGED_FILES=${changedFile}\n${extraEnv}`,
+    );
+  }
+}
+
+async function wholePullRequest() {
+  const found = await pullRequestAtHead(
+    () => jsonGet(`/repos/${repository}/pulls/${prNumber}`),
+    () => diff(`/repos/${repository}/pulls/${prNumber}`),
+  );
+  if (!found) {
+    console.error(`::error::Could not fetch the diff of pull request #${prNumber} at a stable head commit.`);
+    process.exit(1);
+  }
+  const full = (process.env.FULL_DIFF_FILE ?? '').trim() || join(dirname(diffFile), 'pr-full.diff');
+  writeFileSync(full, found.text);
+  console.log(`Head ${found.head.slice(0, 7)}, base ${found.baseRef} at ${found.base.slice(0, 7)}.`);
+  writeOutputs(
+    found.text,
+    'the whole pull request.',
+    `FULL_DIFF_FILE=${full}\nGUIDE_HEAD_SHA=${found.head}\nGUIDE_BASE_SHA=${found.base}\nGUIDE_BASE_REF=${found.baseRef}\n`,
+  );
+}
+
 async function main() {
   if (!repository || !prNumber || !diffFile || !token) {
     console.error('::error::fetch-diff.mjs needs GITHUB_REPOSITORY, PR_NUMBER, DIFF_FILE and GITHUB_TOKEN.');
     process.exit(1);
+  }
+
+  if ((process.env.DIFF_SCOPE_MODE ?? '').trim() === 'pull-request') {
+    await wholePullRequest();
+    return;
   }
 
   const before = process.env.BEFORE_SHA || '';
@@ -406,25 +476,7 @@ async function main() {
     scope = 'the whole pull request.';
   }
 
-  if (text.length > LIMIT) {
-    text = `${text.slice(0, LIMIT)}\n\n*** TRUNCATED at ${LIMIT} bytes. Review what is above and say in the report that the diff was cut. ***\n`;
-  }
-
-  writeFileSync(diffFile, text);
-  console.log(`Diff: ${text.split('\n').length} lines, ${text.length} bytes - ${scope}`);
-
-  const changedFile =
-    (process.env.CHANGED_FILES ?? '').trim() || join(dirname(diffFile), 'changed-files.txt');
-  const changed = changedFilesFromDiff(text);
-  writeFileSync(changedFile, formatChangedFiles(changed));
-  console.log(`Changed files to open: ${changed.length} (${changedFile})`);
-
-  if (process.env.GITHUB_ENV) {
-    appendFileSync(
-      process.env.GITHUB_ENV,
-      `DIFF_FILE=${diffFile}\nDIFF_SCOPE=${scope}\nCHANGED_FILES=${changedFile}\n`,
-    );
-  }
+  writeOutputs(text, scope);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) await main();

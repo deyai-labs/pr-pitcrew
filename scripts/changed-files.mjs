@@ -52,6 +52,11 @@ const LOCKFILE_NAMES = new Set([
   'gradle.lockfile',
 ]);
 
+/** Whether a path is a lockfile this package knows by name. */
+export function isLockfile(path) {
+  return LOCKFILE_NAMES.has(basename(String(path ?? '')));
+}
+
 export function isExemptPath(path) {
   const name = basename(String(path ?? ''));
   if (!name) return true;
