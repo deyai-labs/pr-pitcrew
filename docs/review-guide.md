@@ -191,7 +191,9 @@ each step in the footer:
 5. groups to check, cut to title and link
 6. details of groups, moved to the run summary: groups to check first, groups to read closely last
 
-The table of focus areas stays. The full guide is then in the run summary.
+The table of focus areas stays through these six steps. A comment that is still too long then loses
+the map and the legend, and last the rows of the table. The footer names each step, and the full
+guide is in the run summary. Only a pull request of several hundred focus areas gets that far.
 
 ## When it runs
 

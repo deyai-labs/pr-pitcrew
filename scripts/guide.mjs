@@ -1171,7 +1171,8 @@ const FULL_VIEW = () => ({
  * to check, checks to two, groups to check down to title and link. Then the
  * details move to the run summary, groups to check first, groups to read
  * closely last. The table stays. Only a pull request beyond any reasonable size
- * loses rows of the table, and the comment says so.
+ * loses the map, the legend and then rows of the table, and the comment says
+ * so. A cut beyond that keeps the footer.
  *
  * `ctx`: server, repository, prNumber, headSha, baseSha, runUrl, title,
  * marker, coverageCaption, ticks, outdated, limit.
@@ -1225,8 +1226,12 @@ export function renderGuide(assessment, ctx) {
 
   let body = compose(assessment, context, view, shortened);
   if (body.length > limit) {
-    const tail = `\n\n*(Cut here. The full guide is in the run summary.)*\n${ctx.marker}`;
-    body = `${body.slice(0, limit - tail.length)}${tail}`;
+    // The last resort cuts the middle, never the footer: the footer names the
+    // commit the guide describes, and guide-outdated.mjs reads it from there.
+    const lines = body.split('\n');
+    const foot = lines.slice(-2).join('\n');
+    const note = '\n\n*(Cut here. The full guide is in the run summary.)*\n\n';
+    body = `${lines.slice(0, -2).join('\n').slice(0, Math.max(0, limit - foot.length - note.length))}${note}${foot}`;
   }
   return { body, full, shortened, excerptNotes: [...context.excerptNotes] };
 }

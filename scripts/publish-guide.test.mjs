@@ -136,3 +136,32 @@ describe('publishGuide, dry run', () => {
     assert.equal(code, 2);
   });
 });
+
+describe('a guide cut to the limit', () => {
+  it('keeps its footer, so a later push can still mark it outdated', async () => {
+    const { parseDiff: parse } = await import('./guide-diff.mjs');
+    const { assessGuide, renderGuide } = await import('./guide.mjs');
+    const files = Array.from({ length: 40 }, (_, i) => `src/f${i}.js`);
+    const text = files
+      .map(path => `diff --git a/${path} b/${path}\nnew file mode 100644\n--- /dev/null\n+++ b/${path}\n@@ -0,0 +1,1 @@\n+x`)
+      .join('\n');
+    const report = {
+      summary: 'S '.repeat(500),
+      groups: files.map((file, i) => ({ id: `g${i}`, title: `Area ${i}`, categories: ['security'], consequence: 'severe', scenario: 'x', reason: 'r '.repeat(100), ranges: [{ file }] })),
+    };
+    const { body } = renderGuide(assessGuide(report, parse(text)), {
+      repository: 'o/r',
+      prNumber: 1,
+      headSha: 'abc1234'.padEnd(40, '0'),
+      runUrl: 'u',
+      title: 'Review guide',
+      marker,
+      limit: 1800,
+    });
+    assert.ok(body.length <= 1800, `${body.length}`);
+    assert.match(body, /Cut here/);
+    assert.ok(body.endsWith(marker));
+    assert.equal(describedCommit(body), 'abc1234');
+    assert.ok(outdatedBody(body, 'def5678000'));
+  });
+});
