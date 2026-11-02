@@ -1,0 +1,13 @@
+{
+  "id": "review-guide",
+  "title": "Review guide",
+  "check": "Pitcrew / Review Guide",
+  "command": "/guide",
+  "description": "Reads the whole pull request and writes a guide: groups of changes, where an error would hurt, and in which order to read.",
+  "profile": "read-only-no-shell",
+  "report": "guide",
+  "diffScope": "pull-request",
+  "inputs": ["diff", "issue"],
+  "temperature": 0.1,
+  "modelVariable": "PITCREW_LLM_API_MODEL_REVIEW_GUIDE"
+}

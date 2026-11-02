@@ -1,0 +1,127 @@
+name: Pitcrew Review Guide
+
+# Writes a guide to the pull request: what changes, where an error would hurt,
+# and in which order to read. One comment, updated in place on every push.
+#
+# Call this from your own repository with a workflow of about fifteen lines;
+# `examples/review-guide.yml` is that file. The guide reports no findings and
+# has no quality gate: its check is red only when no guide came out of the run.
+# See docs/review-guide.md.
+#
+# The agent runs read-only, like the two review agents, and for the same
+# reason: the OpenCode runtime commits and pushes whatever it finds in a dirty
+# working tree.
+
+on:
+  workflow_call:
+    inputs:
+      model:
+        description: Model id. Defaults to PITCREW_LLM_API_MODEL_REVIEW_GUIDE, then PITCREW_LLM_API_MODEL.
+        type: string
+        required: false
+        default: ''
+      api-base-url:
+        description: OpenAI-compatible endpoint. Defaults to the variable PITCREW_LLM_API_BASE_URL.
+        type: string
+        required: false
+        default: ''
+      output-language:
+        description: Language the agent writes in. Defaults to English.
+        type: string
+        required: false
+        default: ''
+      timeout-minutes:
+        type: number
+        required: false
+        default: 20
+      runs-on:
+        description: >-
+          Runner for the job - one label such as `ubuntu-latest`, or a JSON array
+          of labels such as `["self-hosted", "linux"]`. See docs/configuration.md,
+          "Your own runners".
+        type: string
+        required: false
+        default: ubuntu-latest
+    secrets:
+      api-key:
+        description: Key for the OpenAI-compatible endpoint.
+        required: true
+      app-private-key:
+        description: Private key of your GitHub App, to comment under your own name.
+        required: false
+
+# A new push cancels the guide in flight: a guide of an older commit points at
+# old lines. Each comment gets a group of its own, for the reason given in
+# bug-review.yml: otherwise any comment on the pull request would cancel the
+# run and then skip itself.
+concurrency:
+  group: pitcrew-review-guide-${{ github.event.pull_request.number || github.event.issue.number }}-${{ github.event.comment.id || 'push' }}
+  cancel-in-progress: true
+
+jobs:
+  guide:
+    # The check name on the pull request. Called, it gains the caller's job id
+    # in front: `review-guide / Pitcrew / Review Guide`.
+    name: Pitcrew / Review Guide
+    # `PITCREW_GUIDE_ON_PUSH=false` keeps a push from starting the guide. The
+    # job below marks the old guide as outdated instead, for no model cost.
+    if: >-
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.draft == false &&
+       (github.event.action != 'synchronize' || vars.PITCREW_GUIDE_ON_PUSH != 'false')) ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request != null &&
+       github.event.comment.user.type != 'Bot' &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
+       contains(github.event.comment.body, '/guide'))
+    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+      pull-requests: write
+      # write, not read: the runtime marks the trigger with a reaction, and the
+      # guide is an issue comment.
+      issues: write
+      # Required of every agent that reads a diff. The guide always reads the
+      # whole pull request and looks up no earlier check, but the action does
+      # not tell the two apart.
+      checks: read
+
+    steps:
+      # Credentials kept on purpose; see bug-review.yml.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - uses: deyai-labs/pr-pitcrew/actions/agent@main
+        with:
+          agent: review-guide
+          api-key: ${{ secrets.api-key }}
+          api-base-url: ${{ inputs.api-base-url || vars.PITCREW_LLM_API_BASE_URL }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          app-id: ${{ vars.PITCREW_APP_ID }}
+          app-private-key: ${{ secrets.app-private-key }}
+          model: ${{ inputs.model || vars.PITCREW_LLM_API_MODEL_REVIEW_GUIDE || vars.PITCREW_LLM_API_MODEL }}
+          fail-on-no-report: ${{ vars.PITCREW_FAIL_ON_NO_REPORT }}
+          # Path rules from the repository's settings, never from the branch: a
+          # pull request cannot lower its own floors (ADR 3).
+          guide-floors: ${{ vars.PITCREW_GUIDE_FLOORS }}
+          output-language: ${{ inputs.output-language || vars.PITCREW_OUTPUT_LANGUAGE || 'English' }}
+          timeout-minutes: ${{ inputs.timeout-minutes }}
+
+  outdated:
+    name: Pitcrew / Review Guide (outdated)
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.action == 'synchronize' &&
+      vars.PITCREW_GUIDE_ON_PUSH == 'false'
+    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: deyai-labs/pr-pitcrew/actions/guide-outdated@main
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}

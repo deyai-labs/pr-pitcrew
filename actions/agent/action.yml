@@ -123,6 +123,13 @@ inputs:
     description: How long the artifact is kept.
     required: false
     default: '30'
+  guide-floors:
+    description: >-
+      Path rules for the review guide: one per line, a pattern and `check` or
+      `read`. They replace the default floors (docs/review-guide.md). Only the
+      review guide reads them.
+    required: false
+    default: ''
   output-language:
     description: >-
       The language the agent writes its summary and findings in. The frame
@@ -297,6 +304,10 @@ runs:
         # uses it to find the last published review of this agent, not of a
         # sibling.
         CHECK_NAME: ${{ steps.manifest.outputs.check }}
+        # `pull-request` for the review guide: the whole pull request on every
+        # run, uncut for the harness, and the head commit it describes.
+        DIFF_SCOPE_MODE: ${{ steps.manifest.outputs.diff-scope }}
+        FULL_DIFF_FILE: ${{ github.workspace }}/.pitcrew-run/pr-full.diff
       run: node "$PITCREW_HOME/scripts/fetch-diff.mjs"
 
     # The agent gets the issue as a file rather than fetching it. `gh` is not in
@@ -309,6 +320,10 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         PR_NUMBER: ${{ inputs.pr-number || github.event.pull_request.number || github.event.issue.number }}
         ISSUE_FILE: ${{ github.workspace }}/.pitcrew-run/issue.md
+        # The pull request's own title and body. The CLI path assembles no pull
+        # request context into the prompt, and the review guide compares the
+        # changes with what the description says.
+        DESCRIPTION_FILE: ${{ github.workspace }}/.pitcrew-run/description.md
       run: node "$PITCREW_HOME/scripts/fetch-issue.mjs"
 
     # Everything the agent needs goes through GITHUB_ENV rather than a step's
@@ -556,6 +571,7 @@ runs:
       shell: bash
       env:
         REPORT_FILE: ${{ github.workspace }}/.pitcrew-run/report.json
+        REPORT_KIND: ${{ steps.manifest.outputs.report }}
         MODEL: ${{ steps.config.outputs.model }}
         PITCREW_LLM_API_KEY: ${{ inputs.api-key }}
         PITCREW_LLM_API_BASE_URL: ${{ inputs.api-base-url }}
@@ -581,6 +597,7 @@ runs:
       env:
         CHANGED_FILES: ${{ github.workspace }}/.pitcrew-run/changed-files.txt
         COVERAGE_FILE: ${{ github.workspace }}/.pitcrew-run/coverage.json
+        REPORT_KIND: ${{ steps.manifest.outputs.report }}
         MODEL: ${{ steps.config.outputs.model }}
         PITCREW_LLM_API_KEY: ${{ inputs.api-key }}
         PITCREW_LLM_API_BASE_URL: ${{ inputs.api-base-url }}
@@ -622,7 +639,29 @@ runs:
         PITCREW_FAIL_ON_NO_REPORT: ${{ inputs.fail-on-no-report }}
         PITCREW_REQUIRE_FULL_COVERAGE: ${{ inputs.require-full-coverage }}
         COVERAGE_FILE: ${{ github.workspace }}/.pitcrew-run/coverage.json
+        # The review guide only. FULL_DIFF_FILE and GUIDE_HEAD_SHA come from
+        # fetch-diff.mjs through GITHUB_ENV.
+        GUIDE_FLOORS: ${{ inputs.guide-floors }}
+        GUIDE_RATING_FILE: ${{ github.workspace }}/.pitcrew-run/guide-rating.json
       run: node "$PITCREW_HOME/scripts/publish-report.mjs"
+
+    # The report as the agent wrote it, and the rating as the harness made it:
+    # the evidence behind every reading mode, for anyone who disagrees with one
+    # and for the calibration set (docs/review-guide.md). Small, and kept as
+    # long as the proof of the other agents.
+    - name: Upload the guide's report
+      if: ${{ !cancelled() && steps.manifest.outputs.report == 'guide' && steps.diff.outputs.skip != 'true' }}
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      with:
+        name: pitcrew-review-guide
+        path: |
+          ${{ github.workspace }}/.pitcrew-run/report.json
+          ${{ github.workspace }}/.pitcrew-run/guide-rating.json
+        if-no-files-found: ignore
+        # Both files sit in `.pitcrew-run/`, which the action skips by default.
+        include-hidden-files: true
+        overwrite: true
+        retention-days: ${{ inputs.artifact-retention-days }}
 
     # The transcript of the run, below the report in the run summary: one line
     # per tool call, its input behind a fold, and the agent's own text. The

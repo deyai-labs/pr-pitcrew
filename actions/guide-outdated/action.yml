@@ -1,0 +1,28 @@
+name: Mark the review guide outdated
+description: Marks the review guide of a pull request as outdated after a push that started no new guide.
+
+# Runs instead of the guide when a repository set `PITCREW_GUIDE_ON_PUSH=false`.
+# No model, no checkout of the branch: it reads the pull request's comments,
+# finds the guide this package wrote, and changes its heading and one line. See
+# scripts/guide-outdated.mjs.
+
+inputs:
+  github-token:
+    description: Token that may edit the pull request's comments.
+    required: true
+  pr-number:
+    description: Pull request whose guide to mark. Defaults to the one in the triggering event.
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Mark the guide outdated
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        PR_NUMBER: ${{ inputs.pr-number || github.event.pull_request.number }}
+        AFTER_SHA: ${{ github.event.pull_request.head.sha }}
+        REVIEW_TITLE: Review guide
+      run: node "$GITHUB_ACTION_PATH/../../scripts/guide-outdated.mjs"

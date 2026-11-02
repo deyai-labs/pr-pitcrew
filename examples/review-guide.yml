@@ -1,0 +1,38 @@
+# Copy this into your repository as `.github/workflows/pitcrew-review-guide.yml`.
+#
+# The guide is one comment on each pull request: what changes, where an error
+# would hurt, and in which order to read. It is updated in place on every push.
+# Ask for a fresh one by commenting `/guide`.
+#
+# Required beforehand, under Settings → Secrets and variables → Actions:
+#   secret   PITCREW_LLM_API_KEY        key for your OpenAI-compatible endpoint
+#   variable PITCREW_LLM_API_BASE_URL   e.g. https://api.example.com/v1
+#   variable PITCREW_LLM_API_MODEL      a model id that endpoint serves
+#
+# Optional:
+#   variable PITCREW_GUIDE_FLOORS       path rules that replace the default floors
+#   variable PITCREW_GUIDE_ON_PUSH      `false` to guide only on open and `/guide`
+
+name: Review Guide
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  checks: read
+
+concurrency:
+  group: review-guide-${{ github.event.pull_request.number || github.event.issue.number }}-${{ github.event.comment.id || 'push' }}
+  cancel-in-progress: true
+
+jobs:
+  review-guide:
+    uses: deyai-labs/pr-pitcrew/.github/workflows/review-guide.yml@v1
+    secrets:
+      api-key: ${{ secrets.PITCREW_LLM_API_KEY }}

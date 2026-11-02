@@ -292,11 +292,38 @@ describe('the reusable workflows', () => {
   it('let the caller choose the runner', () => {
     // A runner fixed in here is a runner nobody who calls this can change:
     // `runs-on` is not allowed next to `uses:` on the caller's side.
-    for (const name of ['bug-review.yml', 'security-review.yml', 'acceptance-test.yml']) {
+    for (const name of ['bug-review.yml', 'security-review.yml', 'acceptance-test.yml', 'review-guide.yml']) {
       const workflow = read('.github/workflows', name);
       assert.match(workflow, /\n      runs-on:\n[\s\S]*?default: ubuntu-latest\n/, `${name}: no runs-on input`);
       assert.match(workflow, /\n    runs-on: \$\{\{[^\n]*inputs\.runs-on[^\n]*\}\}\n/, `${name}: the job ignores the runs-on input`);
     }
+  });
+});
+
+describe('the review guide', () => {
+  const workflow = read('.github/workflows', 'review-guide.yml');
+  const action = read('actions', 'agent', 'action.yml');
+
+  it('reads the floors from the repository settings, never from the branch', () => {
+    // A file in the branch would let a pull request lower its own floors.
+    assert.match(workflow, /guide-floors: \$\{\{ vars\.PITCREW_GUIDE_FLOORS \}\}/);
+    assert.match(action, /GUIDE_FLOORS: \$\{\{ inputs\.guide-floors \}\}/);
+  });
+
+  it('lets a repository switch the push trigger off, and then marks the old guide outdated', () => {
+    assert.match(workflow, /github\.event\.action != 'synchronize' \|\| vars\.PITCREW_GUIDE_ON_PUSH != 'false'/);
+    assert.match(workflow, /actions\/guide-outdated@main/);
+  });
+
+  it('reads the whole pull request, whatever the event', () => {
+    const { manifest } = readAgent(root, 'review-guide');
+    assert.equal(manifest.diffScope, 'pull-request');
+    assert.match(action, /DIFF_SCOPE_MODE: \$\{\{ steps\.manifest\.outputs\.diff-scope \}\}/);
+  });
+
+  it('names the description file, which only the harness can fetch', () => {
+    const { promptText } = readAgent(root, 'review-guide');
+    assert.ok(promptText.includes('$DESCRIPTION_FILE'));
   });
 });
 
