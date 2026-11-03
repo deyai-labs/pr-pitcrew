@@ -31,7 +31,7 @@ Four of them ship today:
 | `bug-review` | `Pitcrew / Bug Review` | Reads the diff, reports defects it can prove, as comments at the code. Fails the check from a severity you choose. |
 | `security-review` | `Pitcrew / Security Review` | The same, for security defects. |
 | `acceptance-test` | `Pitcrew / Acceptance Test` | Drives your deployed app in a browser, proves the linked issue's acceptance criteria, and uploads the video. |
-| `review-guide` | `Pitcrew / Review Guide` | Writes one comment that groups the changes by purpose and recommends how closely to read each group, with links into the diff. Reports no findings and has no gate. |
+| `review-guide` | `Pitcrew / Review Guide` | Supports your own review: says which changes are risky and which are routine, and in which order to read them. One comment with links into the diff. Reports no defects and has no gate. |
 
 They run on [OpenCode](https://opencode.ai) inside **your** runner, against **your**
 OpenAI-compatible endpoint, with **your** key. No third-party service sits in between, and no model
@@ -169,15 +169,22 @@ it - see [`docs/adding-an-agent.md`](docs/adding-an-agent.md).
 
 ### The review guide
 
-Reviewers read every changed line with the same care, and the diff does not say which changes are
-risky. The guide does: it groups the changes by purpose, gives each group a category such as
-🔒 Security or ⚙️ Operations, and recommends a reading mode: ▰▰▰ Read closely, ▰▰▱ Check or ▰▱▱ Skim.
+Coding agents write more and more code, and people still review it. A diff shows every file the same
+way and does not say which changes are risky. So a reviewer reads every line with the same care, and
+works out again for each pull request what belongs together.
 
-The model does not pick the mode. It answers fixed questions per group, and the harness derives the
-mode from a table. Path rules raise it for workflows, migrations or dependencies. Every link, number
-and code excerpt comes from the diff, not from the model. "Nothing to read closely" is a normal
-result. The guide is one comment, updated in place on every push; ticks on its checks stay while the
-code under them stays. See [`docs/review-guide.md`](docs/review-guide.md).
+The guide supports that human review. It says what changes, where an error would hurt, and in which
+order to read. It groups the changes by purpose and recommends a reading mode per group:
+▰▰▰ Read closely, ▰▰▱ Check or ▰▱▱ Skim. You spend your attention on the risky parts and skim the
+routine. The guide does not replace your review, and it reports no defects.
+
+Use it when people review your pull requests and the review takes time: above all for large pull
+requests, for pull requests from coding agents, and for code you do not know well.
+
+The model does not pick the mode. It answers fixed questions per group, and a fixed table gives the
+mode. Path rules raise it for workflows, migrations or dependencies. Every link, number and code
+excerpt comes from the diff, not from the model. "Nothing to read closely" is a normal result. See
+[`docs/review-guide.md`](docs/review-guide.md).
 
 ### The acceptance test agent
 

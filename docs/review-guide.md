@@ -1,8 +1,50 @@
 # The review guide
 
-The `review-guide` agent writes one comment on each pull request. The comment recommends where to
-put the attention of the review: what changes, where an error would hurt, and in which order to read.
-It reports no defects and has no quality gate. `bug-review` and `security-review` look for defects.
+Coding agents write a large part of the code today. People still review it, so review becomes the
+main work of many developers. A diff does not help with that work. It shows the files in alphabetical
+order. It does not show which changes belong together, which are risky and which are routine. The
+reviewer works that out again for each pull request.
+
+The `review-guide` agent supports the human reviewer with this work. It writes one comment on each
+pull request. The comment says what changes, where an error would hurt, and in which order to read.
+For each group of changes, it recommends a reading mode: read closely, check or skim.
+
+## What it is for
+
+The guide has three goals:
+
+- **Less cognitive load.** You get the context first. Then you read the risky parts with a plan.
+- **Less time per review.** You spend your attention where an error would hurt, and skim the routine.
+- **Better reviews.** Risky changes get a close read. This goal is a hypothesis. The concept says how
+  to measure it.
+
+The guide does not replace your review. It reports no defects and approves nothing. Every line stays
+in the diff; the guide only recommends how closely to read it. `bug-review` and `security-review`
+look for defects. All three run in parallel and do not depend on each other.
+
+## When to use it
+
+Use the guide when people review your pull requests and the review takes time. It helps most with
+these pull requests:
+
+- **From coding agents.** They are often large and change more than the task asked for. The guide
+  names changes that the description or the linked issue does not mention.
+- **In code you do not know well.** Each group starts with one or two sentences of context: where the
+  code sits and what it does.
+- **Large ones.** The number of focus areas follows the risk, not the size. When a pull request has
+  too much to read closely, the guide says so and suggests splitting it.
+- **Mixed ones.** A few risky changes hide between tests, docs and renames. The guide puts them first.
+
+It helps less in these cases:
+
+- **Small pull requests** that you read in a few minutes. The guide then often says "nothing to read
+  closely". That is correct, but it saves little time.
+- **No human review.** The guide points human attention. Without a human reviewer, it has no reader.
+- **Tight model budget.** Each run reads the whole pull request and costs about as much as a full
+  `bug-review`. Set `PITCREW_GUIDE_ON_PUSH=false` to run it only when the pull request opens and on
+  `/guide`.
+
+## Background
 
 The design and the research behind it are in the concept,
 [`docs/concepts/review-guide.md`](concepts/review-guide.md). This page is for the people who read
