@@ -18,6 +18,31 @@ inputs:
 runs:
   using: composite
   steps:
+    # The script needs Node 20.10 or newer. A self-hosted runner may have none,
+    # and then the step dies with `node: command not found`. The same check as
+    # in actions/agent: a Node that is already there is kept.
+    - name: Look for Node
+      id: node
+      shell: bash
+      run: |
+        set -euo pipefail
+        if command -v node > /dev/null &&
+          node -e 'const [major, minor] = process.versions.node.split(".").map(Number); process.exit(major > 20 || (major === 20 && minor >= 10) ? 0 : 1)'; then
+          echo "Node $(node --version) at $(command -v node)"
+          echo "found=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "No Node 20.10 or newer on PATH, installing one."
+          echo "found=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Install Node
+      if: steps.node.outputs.found != 'true'
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: 24
+        # No checkout in this job, so there is no package.json to key a cache on.
+        package-manager-cache: false
+
     - name: Mark the guide outdated
       shell: bash
       env:
