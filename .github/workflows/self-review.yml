@@ -30,12 +30,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Ubicloud, like the other workflows of this repository. The default of the
+  # reusable workflows stays `ubuntu-latest` for every consumer.
   bug:
     uses: ./.github/workflows/bug-review.yml
+    with:
+      runs-on: ubicloud-standard-2
     secrets:
       api-key: ${{ secrets.PITCREW_LLM_API_KEY }}
 
   security:
     uses: ./.github/workflows/security-review.yml
+    with:
+      runs-on: ubicloud-standard-2
     secrets:
       api-key: ${{ secrets.PITCREW_LLM_API_KEY }}
