@@ -1,0 +1,5 @@
+# actionlint kennt nur die GitHub-eigenen Labels. Ein Runner-Label wie dieses
+# muss hier ausdrücklich stehen, sonst meldet die Prüfung jeden Job als fehlerhaft.
+self-hosted-runner:
+  labels:
+    - ubicloud-standard-2
