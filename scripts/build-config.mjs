@@ -57,6 +57,7 @@ export const PLACEHOLDERS = [
   'DIFF_SCOPE',
   'CHANGED_FILES',
   'ISSUE_FILE',
+  'DESCRIPTION_FILE',
   'REPORT_FILE',
   'RUN_URL',
   'WORK_DIR',
@@ -96,8 +97,11 @@ export function readAgent(home, id) {
     if (!manifest[field]) fail(`${manifestPath} has no "${field}". A manifest without one cannot be run.`);
   }
   if (manifest.id !== id) fail(`${manifestPath} calls itself "${manifest.id}" but lives in agents/${id}/.`);
-  if (!['findings', 'criteria'].includes(manifest.report)) {
-    fail(`${manifestPath} declares report "${manifest.report}"; known kinds are "findings" and "criteria".`);
+  if (!['findings', 'criteria', 'guide'].includes(manifest.report)) {
+    fail(`${manifestPath} declares report "${manifest.report}"; known kinds are "findings", "criteria" and "guide".`);
+  }
+  if (manifest.diffScope !== undefined && !['incremental', 'pull-request'].includes(manifest.diffScope)) {
+    fail(`${manifestPath} declares diffScope "${manifest.diffScope}"; known scopes are "incremental" and "pull-request".`);
   }
 
   const promptPath = join(dir, 'prompt.md');

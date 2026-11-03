@@ -37,19 +37,29 @@ const WRITE_TOOLS = new Set(['write', 'edit', 'write_report']);
  */
 export function isUsableReport(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  if (typeof value.verdict !== 'string' || !value.verdict.trim()) return false;
+  // A guide judges nothing; its groups are what make it a report.
+  const guide = Array.isArray(value.groups);
+  if (!guide && (typeof value.verdict !== 'string' || !value.verdict.trim())) return false;
   if (value.findings !== undefined && !Array.isArray(value.findings)) return false;
   if (value.criteria !== undefined && !Array.isArray(value.criteria)) return false;
   return true;
 }
 
+const GUIDE_FIELDS = ['intent', 'groups', 'order', 'diagrams', 'notAssessed'];
+
 export function normaliseReport(value) {
-  return {
-    verdict: String(value.verdict).trim(),
+  const report = {
+    verdict: typeof value.verdict === 'string' && value.verdict.trim() ? value.verdict.trim() : 'pass',
     summary: typeof value.summary === 'string' ? value.summary : '',
     findings: Array.isArray(value.findings) ? value.findings : [],
     criteria: Array.isArray(value.criteria) ? value.criteria : [],
   };
+  // The review guide's fields, kept as they are. Without them a recovered
+  // guide would be a summary and nothing else.
+  if (Array.isArray(value.groups)) {
+    for (const key of GUIDE_FIELDS) if (value[key] !== undefined) report[key] = value[key];
+  }
+  return report;
 }
 
 export function writeReportFile(reportFile, report) {
@@ -153,7 +163,7 @@ function asTextReport(value) {
   const report = asReport(value);
   if (!report) return null;
   if (typeof report.summary !== 'string' || !report.summary.trim()) return null;
-  if (!Array.isArray(report.findings) && !Array.isArray(report.criteria)) return null;
+  if (!Array.isArray(report.findings) && !Array.isArray(report.criteria) && !Array.isArray(report.groups)) return null;
   return report;
 }
 

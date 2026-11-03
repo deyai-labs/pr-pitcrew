@@ -145,7 +145,9 @@ function continueForTool() {
   const args = ['run', '--continue'];
   if ((process.env.MODEL ?? '').trim()) args.push('--model', process.env.MODEL.trim());
   args.push(
-    'You ended your turn without calling write_report. That tool is the only place this run reads its result from: without it there is no comment at the code and nothing you found survives. Call write_report now with the verdict, summary and findings or criteria you already have. An empty findings or criteria list is valid. Do not review the diff again. Reply with one word after the tool succeeds.',
+    (process.env.REPORT_KIND ?? '').trim() === 'guide'
+      ? 'You ended your turn without calling write_report. That tool is the only place this run reads its result from: without it there is no guide on the pull request. Call write_report now with the summary, intent, groups, order and diagrams you already have. Do not read the diff again. Reply with one word after the tool succeeds.'
+      : 'You ended your turn without calling write_report. That tool is the only place this run reads its result from: without it there is no comment at the code and nothing you found survives. Call write_report now with the verdict, summary and findings or criteria you already have. An empty findings or criteria list is valid. Do not review the diff again. Reply with one word after the tool succeeds.',
   );
 
   try {

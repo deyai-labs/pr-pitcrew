@@ -135,6 +135,17 @@ describe('readAgent refuses rather than falls back', () => {
     });
   });
 
+  it('reads the guide kind and a diff scope, and refuses a scope it does not know', () => {
+    const home = makeHome({
+      agents: {
+        alpha: { manifest: manifestFor('alpha', { report: 'guide', diffScope: 'pull-request' }), prompt: 'Ask alpha.' },
+        beta: { manifest: manifestFor('beta', { diffScope: 'everything' }), prompt: 'Ask beta.' },
+      },
+    });
+    assert.equal(readAgent(home, 'alpha').manifest.report, 'guide');
+    assert.throws(() => readAgent(home, 'beta'), /diffScope "everything"/);
+  });
+
   it('refuses a manifest whose id disagrees with the directory it lives in', () => {
     // Otherwise the id in the configuration and the directory the prompt came
     // from are two different agents wearing one name.

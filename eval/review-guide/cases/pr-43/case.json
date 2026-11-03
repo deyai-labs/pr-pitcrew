@@ -1,0 +1,27 @@
+{
+  "title": "Keep base-branch merges out of incremental reviews",
+  "pullRequest": "deyai-labs/pr-pitcrew#43",
+  "base": "5d93fd0bdee1358685ef3e4bee8d4d71a724b25b",
+  "head": "812d74244ea70b5fe0f8b447856dc19061ca60d3",
+  "kind": "mixed",
+  "ratedBy": "the author of docs/concepts/review-guide.md, section 6.5. The rating knew the findings of bug-review and security-review on this pull request.",
+  "groups": [
+    {
+      "title": "Skip decision",
+      "mode": "read",
+      "ranges": [
+        { "file": "scripts/fetch-diff.mjs", "from": 313, "to": 324 },
+        { "file": "scripts/fetch-diff.mjs", "from": 334, "to": 404 }
+      ]
+    },
+    { "title": "Base-change guard", "mode": "read", "ranges": [{ "file": "scripts/fetch-diff.mjs", "from": 221, "to": 266 }] },
+    { "title": "Diff cut", "mode": "check", "ranges": [{ "file": "scripts/own-changes.mjs" }] },
+    { "title": "Skip guard", "mode": "check", "ranges": [{ "file": "actions/agent/action.yml" }] },
+    { "title": "Tests", "mode": "skim", "ranges": [{ "file": "scripts/own-changes.test.mjs" }, { "file": "scripts/fetch-diff.test.mjs" }] },
+    {
+      "title": "Docs, changelog, version",
+      "mode": "skim",
+      "ranges": [{ "file": "docs/how-it-works.md" }, { "file": "CHANGELOG.md" }, { "file": "package.json" }]
+    }
+  ]
+}

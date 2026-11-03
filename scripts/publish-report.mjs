@@ -26,6 +26,9 @@
  * run before its findings were on the pull request would hide exactly the
  * information the red check is about.
  *
+ * An agent with `report: "guide"` is handed to publish-guide.mjs before any of
+ * this: the review guide has no findings and no gate.
+ *
  * Exit codes, because a red check has to say which kind of red it is:
  *
  *   0  the quality gate holds
@@ -74,8 +77,16 @@ const artifactLabel = (process.env.ARTIFACT_LABEL ?? '').trim() || artifactName;
 /** Agreed with actions/agent/action.yml, which hands the same path to the agent. */
 const reportFile = process.env.REPORT_FILE ?? join(process.env.GITHUB_WORKSPACE ?? '.', '.pitcrew-run', 'report.json');
 
-/** From the agent's manifest: `findings`, `criteria`, or unset. See shapeReport. */
+/** From the agent's manifest: `findings`, `criteria`, `guide`, or unset. See shapeReport. */
 const reportKind = (process.env.REPORT_KIND ?? 'unknown').trim() || 'unknown';
+
+// The review guide is published differently: one comment updated in place, no
+// comments at the code, no quality gate. Handed over here, so the action keeps
+// one publish step for every agent. See publish-guide.mjs and ADR 10.
+if (reportKind === 'guide') {
+  const { publishGuide } = await import('./publish-guide.mjs');
+  process.exit(await publishGuide());
+}
 
 // Invisible in the rendered comment, and the only way a later run can tell its
 // own findings from a human's remark or another reviewer's. Written and

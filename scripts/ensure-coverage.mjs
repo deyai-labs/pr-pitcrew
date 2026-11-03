@@ -147,7 +147,9 @@ function continueForFiles(missing) {
   args.push(
     [
       'You ended your turn without opening every file this run requires. A hunk is three lines of context; the file is what the change means. A file you have not opened is one you cannot report on and one you cannot clear.',
-      'Open each of these files at the head revision now, then call write_report with the verdict, summary and findings you then have. Empty findings are valid. Do not skip a file because its hunk looked benign.',
+      (process.env.REPORT_KIND ?? '').trim() === 'guide'
+        ? 'Open each of these files at the head revision now, then call write_report again with the whole guide you then have: summary, intent, groups, order, diagrams. Do not skip a file because its hunk looked benign.'
+        : 'Open each of these files at the head revision now, then call write_report with the verdict, summary and findings you then have. Empty findings are valid. Do not skip a file because its hunk looked benign.',
       '',
       'Files not yet opened:',
       list,

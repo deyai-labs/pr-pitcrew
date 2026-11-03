@@ -13,7 +13,14 @@
  * and the prompt says what to do then: derive what the change claims from its
  * title, body and diff, and say in the report that you did.
  *
- * Environment: GITHUB_REPOSITORY, PR_NUMBER, ISSUE_FILE, GITHUB_TOKEN.
+ * With DESCRIPTION_FILE set, the pull request's own title and body go into
+ * that file too. On the `pull_request` path the runtime assembles no pull
+ * request context into the prompt (ADR 9), and the review guide compares the
+ * changes with what the description says (P11). An agent without a shell
+ * cannot fetch it.
+ *
+ * Environment: GITHUB_REPOSITORY, PR_NUMBER, ISSUE_FILE, GITHUB_TOKEN,
+ * optionally DESCRIPTION_FILE.
  */
 
 import { appendFileSync, writeFileSync } from 'node:fs';
@@ -42,6 +49,12 @@ export function findIssueNumber(body, repo) {
   return null;
 }
 
+/** The pull request's title and body as the agent reads them. */
+export function describePullRequest(title, body) {
+  const text = String(body ?? '').trim();
+  return `# ${String(title ?? '').trim()}\n\n${text || '(The pull request has no description.)'}\n`;
+}
+
 async function main() {
   const api = process.env.GITHUB_API_URL || 'https://api.github.com';
   const repository = process.env.GITHUB_REPOSITORY;
@@ -66,9 +79,12 @@ async function main() {
   // `$ISSUE_FILE` is substituted from this - and a run that skipped the export
   // would hand the agent those eleven characters and a puzzle. An empty file is
   // an answer; a literal placeholder is not.
+  const descriptionFile = (process.env.DESCRIPTION_FILE ?? '').trim();
   const announce = () => {
-    if (process.env.GITHUB_ENV) appendFileSync(process.env.GITHUB_ENV, `ISSUE_FILE=${issueFile}\n`);
+    if (!process.env.GITHUB_ENV) return;
+    appendFileSync(process.env.GITHUB_ENV, `ISSUE_FILE=${issueFile}\n${descriptionFile ? `DESCRIPTION_FILE=${descriptionFile}\n` : ''}`);
   };
+  if (descriptionFile) writeFileSync(descriptionFile, '');
 
   const nothingToRead = reason => {
     console.log(reason);
@@ -80,7 +96,11 @@ async function main() {
   const pull = await fetch(`${api}/repos/${repository}/pulls/${prNumber}`, { headers });
   if (!pull.ok) nothingToRead(`::warning::Could not read pull request #${prNumber}, so its linked issue could not be looked up.`);
 
-  const { body } = await pull.json();
+  const { body, title: prTitle } = await pull.json();
+  if (descriptionFile) {
+    writeFileSync(descriptionFile, describePullRequest(prTitle, body));
+    console.log(`Description of #${prNumber}: ${String(body ?? '').length} characters.`);
+  }
   const number = findIssueNumber(body, repository);
   if (!number) nothingToRead('This pull request closes no issue that its body names. The agent works from the pull request itself.');
 

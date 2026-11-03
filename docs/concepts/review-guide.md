@@ -1,6 +1,6 @@
 # Konzept: Review-Guide-Agent
 
-Status: entschieden, bereit zur Umsetzung (Issue [deyai-labs/pr-pitcrew#45](https://github.com/deyai-labs/pr-pitcrew/issues/45)) · Stand: 2026-11-02
+Status: MVP umgesetzt (Issue [deyai-labs/pr-pitcrew#45](https://github.com/deyai-labs/pr-pitcrew/issues/45)). Nutzer-Doku: [`docs/review-guide.md`](../review-guide.md) · Stand: 2026-11-02
 
 [TOC]
 

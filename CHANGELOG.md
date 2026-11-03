@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A fourth agent supports the human review: the review guide.** Coding agents write more and more
+  code, and people still review it. A diff does not say which changes are risky and which are
+  routine, so a reviewer reads every line with the same care. The guide writes one comment per pull
+  request: what changes, where an error would hurt, and in which order to read. It recommends a
+  reading mode per group of changes: read closely, check or skim. The reviewer then spends attention
+  on the risky parts and skims the routine. The guide replaces no review, reports no defects and has
+  no quality gate. The reading mode follows from fixed questions and a fixed table, not from a free
+  choice of the model. The comment is updated on every push. Install it with
+  [`examples/review-guide.yml`](examples/review-guide.yml); see
+  [`docs/review-guide.md`](docs/review-guide.md).
+- **`PITCREW_GUIDE_FLOORS`** replaces the default path floors of the guide, and
+  **`PITCREW_GUIDE_ON_PUSH=false`** keeps a push from starting it. A push then marks the old guide as
+  outdated.
+
 ## [1.3.1] - 2026-10-23
 
 ### Fixed

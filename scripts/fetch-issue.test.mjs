@@ -13,7 +13,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { findIssueNumber } from './fetch-issue.mjs';
+import { describePullRequest, findIssueNumber } from './fetch-issue.mjs';
 
 const repo = 'acme/widgets';
 
@@ -97,5 +97,12 @@ describe('an empty body', () => {
     assert.equal(findIssueNumber(null, repo), null);
     assert.equal(findIssueNumber(undefined, repo), null);
     assert.equal(findIssueNumber('   \n\n  ', repo), null);
+  });
+});
+
+describe('describePullRequest', () => {
+  it('puts the title above the body, and says so when there is no body', () => {
+    assert.equal(describePullRequest('Fix it', 'Closes #3.'), '# Fix it\n\nCloses #3.\n');
+    assert.equal(describePullRequest('Fix it', null), '# Fix it\n\n(The pull request has no description.)\n');
   });
 });
