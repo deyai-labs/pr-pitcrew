@@ -71,7 +71,13 @@ export function pickGuideTarget(comments, { title, runId }) {
 
 /** The short SHA a guide says it describes, from its footer. */
 export function describedCommit(body) {
-  return /Describes `([0-9a-f]{7,40})`/.exec(String(body ?? ''))?.[1] ?? '';
+  // The footer is the last `<sub>` line. Free text of the model comes before
+  // it and may hold the same words; it never starts a line with `<sub>`.
+  const footer = String(body ?? '')
+    .split('\n')
+    .filter(line => line.startsWith('<sub>'))
+    .at(-1);
+  return /Describes `([0-9a-f]{7,40})`/.exec(footer ?? '')?.[1] ?? '';
 }
 
 export function outdatedSentence(described, current) {

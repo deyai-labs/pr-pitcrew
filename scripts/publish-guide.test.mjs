@@ -47,6 +47,11 @@ describe('the guide after a push it did not see', () => {
     assert.equal(describedCommit(body), 'abc1234');
   });
 
+  it('reads that commit from the footer only, not from free text above it', () => {
+    const shadowed = body.replace('**In short.** x', '**In short.** This group Describes `deadbee` handling.\n\n<sub>Describes `0000000` in a caption.</sub>');
+    assert.equal(describedCommit(shadowed), 'abc1234');
+  });
+
   it('is marked outdated once, and not again for the same push', () => {
     const next = outdatedBody(body, 'def5678000');
     assert.match(next.split('\n')[0], /⚠️ outdated$/);
