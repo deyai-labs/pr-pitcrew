@@ -1,0 +1,44 @@
+# Copy to .github/workflows/issue-implementer.yml in a PRIVATE repository whose
+# runner reaches the model endpoint. See README.md next to this file.
+
+name: Issue implementer
+
+on:
+  # Start: an issue is assigned to PITCREW_IMPLEMENTER_ASSIGNEE.
+  issues:
+    types: [assigned]
+  # Wake-ups on the implementer's pull request. Each one makes the workflow
+  # look for open feedback; most end after a few seconds on a hosted runner.
+  issue_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+  # The review agents comment with the workflow token, and those comments start
+  # no workflow. Their runs finishing does. Use the `name:` of your review
+  # workflows here.
+  workflow_run:
+    workflows: [Bug Review, Security Review]
+    types: [completed]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  implementer:
+    # The ref after `@` picks the workflow; `harness-ref` picks the scripts and
+    # the prompt. Keep both the same. To test a branch of pr-pitcrew before it
+    # is merged, put the branch name in both places.
+    uses: deyai-labs/pr-pitcrew/.github/workflows/labs-issue-implementer.yml@main
+    with:
+      harness-ref: main
+      runs-on: fireactions-light
+      timeout-minutes: 180
+      reasoning-effort: high
+    secrets:
+      api-key: ${{ secrets.PITCREW_IMPLEMENTER_API_KEY }}
+      # Either a token of the assignee account (commits and pull requests then
+      # carry its name), or a GitHub App: set PITCREW_IMPLEMENTER_APP_ID and pass
+      # app-private-key instead.
+      push-token: ${{ secrets.PITCREW_IMPLEMENTER_PUSH_TOKEN }}

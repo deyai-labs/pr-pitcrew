@@ -1,0 +1,28 @@
+{
+  "$comment": "The issue implementer's permissions. It edits the checkout and runs a shell, because implementing an issue means both. It cannot commit or push: the job that runs it has contents: read and no write token, and a second job pushes the patch. See labs/issue-implementer/README.md. Order matters: OpenCode applies the last rule that matches.",
+  "bash": {
+    "*": "allow",
+    "git commit*": "deny",
+    "git push*": "deny"
+  },
+  "read": {
+    "*": "allow",
+    "/proc/**": "deny",
+    "/sys/**": "deny",
+    ".git/**": "deny",
+    "**/.git/**": "deny"
+  },
+  "edit": {
+    "*": "allow",
+    ".git/**": "deny",
+    "**/.git/**": "deny",
+    ".github/workflows/**": "deny",
+    "**/.github/workflows/**": "deny"
+  },
+  "webfetch": "deny",
+  "websearch": "deny",
+  "task": "deny",
+  "question": "deny",
+  "doom_loop": "deny",
+  "external_directory": "deny"
+}
