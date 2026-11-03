@@ -93,7 +93,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: deyai-labs/pr-pitcrew/actions/agent@main
+      - uses: deyai-labs/pr-pitcrew/actions/agent@v1.4.1
         with:
           agent: review-guide
           api-key: ${{ secrets.api-key }}
@@ -122,6 +122,6 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - uses: deyai-labs/pr-pitcrew/actions/guide-outdated@main
+      - uses: deyai-labs/pr-pitcrew/actions/guide-outdated@v1.4.1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
