@@ -7,21 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-03
+
 ### Added
 
-- **A fourth agent supports the human review: the review guide.** Coding agents write more and more
-  code, and people still review it. A diff does not say which changes are risky and which are
-  routine, so a reviewer reads every line with the same care. The guide writes one comment per pull
-  request: what changes, where an error would hurt, and in which order to read. It recommends a
-  reading mode per group of changes: read closely, check or skim. The reviewer then spends attention
-  on the risky parts and skims the routine. The guide replaces no review, reports no defects and has
-  no quality gate. The reading mode follows from fixed questions and a fixed table, not from a free
-  choice of the model. The comment is updated on every push. Install it with
-  [`examples/review-guide.yml`](examples/review-guide.yml); see
+- **A fourth agent helps the human review: the review guide.** Coding agents write more code, and
+  people still review it. A diff does not show which changes are risky and which are routine. A
+  reviewer reads every line with the same care. The review guide writes one comment per pull
+  request. The comment states what changes, where an error would hurt, and the order to read. For
+  each group of changes, it recommends a reading mode: read closely, check, or skim. The reviewer
+  spends attention on the risky parts and skims the routine. The review guide does not replace a
+  review. It reports no defects. It is not a quality gate. The reading mode comes from fixed
+  questions and a fixed table. The model does not choose it freely. The comment is updated on every
+  push. Install it with [`examples/review-guide.yml`](examples/review-guide.yml). See
   [`docs/review-guide.md`](docs/review-guide.md).
-- **`PITCREW_GUIDE_FLOORS`** replaces the default path floors of the guide, and
-  **`PITCREW_GUIDE_ON_PUSH=false`** keeps a push from starting it. A push then marks the old guide as
-  outdated.
+- **`PITCREW_GUIDE_FLOORS`** replaces the default path floors of the review guide.
+  **`PITCREW_GUIDE_ON_PUSH=false`** keeps a push from starting the review guide. A push then marks
+  the previous review guide as outdated.
 
 ## [1.3.1] - 2026-10-23
 
@@ -192,7 +194,8 @@ is no plan to remove it.
 Version `1.0.0` rather than `0.1.0`: the interface is the one that had been running in a
 private repository for weeks, and `@v1` is what the documentation references.
 
-[Unreleased]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.2.2...v1.3.0
 [1.2.2]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.2.1...v1.2.2
