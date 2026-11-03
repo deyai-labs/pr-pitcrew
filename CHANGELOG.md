@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-11-03
+
+### Fixed
+
+- **The job that marks the review guide as outdated now runs on a runner without Node.** The job
+  stopped with `node: command not found` on a self-hosted runner. The action now finds Node first
+  and installs Node 24 when the runner has none, as the agent action does.
+
 ## [1.4.0] - 2026-11-03
 
 ### Added
@@ -194,7 +202,8 @@ is no plan to remove it.
 Version `1.0.0` rather than `0.1.0`: the interface is the one that had been running in a
 private repository for weeks, and `@v1` is what the documentation references.
 
-[Unreleased]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.2.2...v1.3.0

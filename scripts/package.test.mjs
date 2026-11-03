@@ -327,6 +327,27 @@ describe('the review guide', () => {
   });
 });
 
+describe('the action that marks the review guide outdated', () => {
+  // It runs on the caller's runner, outside any container, like the agent.
+  const action = read('actions', 'guide-outdated', 'action.yml')
+    .split('\n')
+    .filter(line => !/^\s*#/.test(line))
+    .join('\n');
+  const steps = action
+    .slice(action.indexOf('\n  steps:'))
+    .split(/\n {4}- /)
+    .slice(1);
+
+  it('finds a Node before its script needs one, and keeps the runner\'s own', () => {
+    const look = steps.findIndex(step => step.includes('name: Look for Node'));
+    const install = steps.findIndex(step => step.includes('uses: actions/setup-node@'));
+    const first = steps.findIndex(step => /run: node /.test(step));
+    assert.ok(look >= 0 && install >= 0, 'nothing provides Node on a runner without one');
+    assert.ok(look < install && install < first, 'Node is provided after the script needs it');
+    assert.match(steps[install], /if: steps\.node\.outputs\.found != 'true'/, 'a Node the runner brings is overwritten');
+  });
+});
+
 describe('the checks that run before the agent', () => {
   // A red check whose reason is one click away is a reason nobody reads. Both
   // of these end the job in seconds, and both leave the sentence where the
