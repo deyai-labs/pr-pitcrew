@@ -140,7 +140,7 @@ questions.
 
 ### Read-only by construction
 
-The two review agents have no shell, no `webfetch`, no `websearch`
+The three review agents have no shell, no `webfetch`, no `websearch`
 and no sub-agents; they may write only inside a git-ignored run directory. That is not a promise 
 made to the model in a prompt, it is a permission profile that ships with this package, so a pull 
 request cannot grant its own reviewer a shell even by editing every file it can reach. 

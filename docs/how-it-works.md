@@ -751,7 +751,7 @@ generally does not appear in that list at all; Copilot is a special case, not a 
 Requesting the same reviewer again is the request for a second round. GitHub will not request
 somebody who is already pending, so that means removing them and adding them back, or using
 re-request once they have submitted a review. A push in between starts nothing and cancels nothing.
-A draft blocks neither this nor `/acceptance`: both are an explicit ask. The two diff reviews still
+A draft blocks neither this nor `/acceptance`: both are an explicit ask. The three diff reviews still
 skip drafts.
 
 If the deployment is not serving this commit yet, `actions/check-deployment` fails the run before the
@@ -769,7 +769,7 @@ error, no report, no clue. It was noticed because three runs died 35 seconds aft
 time to the second on somebody posting a comment.
 
 So `github.event.comment.id` is in the key, and every comment gets a group of its own. On a
-`pull_request` event that field is empty and the two diff reviews fall back to one group per pull
+`pull_request` event that field is empty and the three diff reviews fall back to one group per pull
 request, so a new push still supersedes the review running for the previous one.
 
 The acceptance test has no push trigger, and its fallback is the requested login or team slug.
