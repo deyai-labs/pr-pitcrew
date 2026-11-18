@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A fifth agent reviews changes to the user interface: the design review.** It holds a pull
+  request against the design guidelines the repository writes down - the document its `AGENTS.md`
+  or `CLAUDE.md` links to, or a file such as `DESIGN.md` - and comments at the lines that break a
+  written rule: a look the direction rules out, a color used for a meaning it is reserved against,
+  a state a component's section names but the change leaves out. Taste is never a finding, and
+  without written guidelines it reports nothing. Check `Pitcrew / Design Review`, rerun with
+  `/design`, model `PITCREW_LLM_API_MODEL_DESIGN_REVIEW`. Install it with
+  [`examples/design-review.yml`](examples/design-review.yml) and narrow it to the paths that hold
+  your user interface.
+
 ## [1.4.1] - 2026-11-03
 
 ### Fixed

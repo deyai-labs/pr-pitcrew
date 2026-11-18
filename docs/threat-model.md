@@ -111,8 +111,8 @@ Concretely:
   boundary against either: a maintainer requesting the reviewer on somebody's pull request runs the
   agent against that pull request's linked issue, which is the trigger working as designed. The
   refusal in a public repository above is the line that matters.
-- The two review agents are unaffected by all of that and keep running in public repositories,
-  because the analysis above holds for them: hostile text has nowhere to go.
+- The three review agents (bug, security, design) are unaffected by all of that and keep running in
+  public repositories, because the analysis above holds for them: hostile text has nowhere to go.
 
 **A refusal is a norm here, not a wall.** One run met a broken rig - the browser driver was missing -
 and spent its whole budget looking for a way to obtain one: the npm registry, a writable directory,
@@ -179,7 +179,7 @@ in a footnote.
   somebody with write access pushed it. See
   [ADR 9](adr/0009-the-pull-request-path-runs-the-cli.md).
 
-  For the two review agents what is given up is not code execution: a user with **read** access can
+  For the three review agents what is given up is not code execution: a user with **read** access can
   open a pull request from an existing branch and spend model budget. They have no shell, no
   `webfetch` and no way to read the process environment, so that is the whole of it. **For the
   acceptance agent it is not**, and that difference is handled where it arises - see "What the

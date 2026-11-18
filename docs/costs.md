@@ -15,6 +15,7 @@ not know, it says so rather than inventing a number.
 | --- | --- | --- |
 | `bug-review` | `ubuntu-latest`, no container | a few minutes on a small diff; the timeout is 20 |
 | `security-review` | the same | the same |
+| `design-review` | the same | the same |
 | `acceptance-test` | Playwright container, ~1.5 GB image pull | the longest by far; the timeout is 30 |
 
 The two diff reviews are cheap in minutes and the acceptance test is not. Nothing polls and nothing

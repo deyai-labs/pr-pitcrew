@@ -1,0 +1,12 @@
+{
+  "id": "design-review",
+  "title": "Design review",
+  "check": "Pitcrew / Design Review",
+  "command": "/design",
+  "description": "Reads a pull request diff that changes a user interface and reports where it breaks the repository's written design guidelines.",
+  "profile": "read-only-no-shell",
+  "report": "findings",
+  "inputs": ["diff"],
+  "temperature": 0.1,
+  "modelVariable": "PITCREW_LLM_API_MODEL_DESIGN_REVIEW"
+}

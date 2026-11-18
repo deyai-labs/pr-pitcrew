@@ -15,22 +15,24 @@
     src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
 </p>
 
-Four agents for your pull requests, installed as GitHub Actions workflows and run on your own LLM
+Five agents for your pull requests, installed as GitHub Actions workflows and run on your own LLM
 endpoint. Open a pull request and it is read for bugs and for security defects, with each finding
-written as a comment on the line it is about. A guide tells you where to read closely and what to
+written as a comment on the line it is about. A change to your user interface is held against your
+written design guidelines. A guide tells you where to read closely and what to
 skim. Ask for the acceptance test and an agent with a browser drives your app, walks the linked
 issue's acceptance criteria, and leaves the recording behind for you to check.
 
 A real pit crew: several specialists, each with one job, all at once, and the car leaves in better
 shape than it arrived.
 
-Four of them ship today:
+Five of them ship today:
 
 | Agent | Check | What it does |
 | --- | --- | --- |
 | `bug-review` | `Pitcrew / Bug Review` | Reads the diff, reports defects it can prove, as comments at the code. Fails the check from a severity you choose. |
 | `security-review` | `Pitcrew / Security Review` | The same, for security defects. |
 | `acceptance-test` | `Pitcrew / Acceptance Test` | Drives your deployed app in a browser, proves the linked issue's acceptance criteria, and uploads the video. |
+| `design-review` | `Pitcrew / Design Review` | Holds a change to your user interface against the design guidelines your repository writes down, and comments where it breaks them. Run it only on the paths that hold your UI. |
 | `review-guide` | `Pitcrew / Review Guide` | Supports your own review: says which changes are risky and which are routine, and in which order to read them. One comment with links into the diff. Reports no defects and has no gate. |
 
 They run on [OpenCode](https://opencode.ai) inside **your** runner, against **your**
@@ -100,8 +102,9 @@ Then, once for all agents, under **Settings → Secrets and variables → Action
 
 Open a pull request. There is no fourth step.
 
-The others are that same file with another name in it. `examples/` has all four, ready to copy: the
-security review and the review guide are installed exactly like this one, and the acceptance test
+The others are that same file with another name in it. `examples/` has all five, ready to copy: the
+security review and the review guide are installed exactly like this one, the design review adds
+the paths that hold your user interface, and the acceptance test
 differs in what starts it and in two variables of its own, which the section below explains. Beyond
 the endpoint, the key and the model, they share nothing, so enable any of them.
 
