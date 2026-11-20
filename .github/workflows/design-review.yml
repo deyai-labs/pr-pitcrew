@@ -106,7 +106,7 @@ jobs:
           # The agent diffs against the base branch, which a shallow clone lacks.
           fetch-depth: 0
 
-      - uses: deyai-labs/pr-pitcrew/actions/agent@main
+      - uses: deyai-labs/pr-pitcrew/actions/agent@v1.5.0
         with:
           agent: design-review
           api-key: ${{ secrets.api-key }}
