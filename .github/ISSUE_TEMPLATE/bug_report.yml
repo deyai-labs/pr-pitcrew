@@ -9,6 +9,7 @@ body:
       options:
         - bug-review
         - security-review
+        - design-review
         - acceptance-test
         - The package itself (release, action, docs)
     validations:

@@ -25,11 +25,12 @@ Settings → Secrets and variables → Actions → Variables.
 | `PITCREW_LLM_API_MODEL` | all | yes, unless every agent has its own | none | A model id the endpoint serves, for every agent without one of its own. Passed through as the endpoint spells it, slashes included. |
 | `PITCREW_LLM_API_MODEL_BUG_REVIEW` | bug review | no | `PITCREW_LLM_API_MODEL` | Model for that one agent. |
 | `PITCREW_LLM_API_MODEL_SECURITY_REVIEW` | security review | no | `PITCREW_LLM_API_MODEL` | Model for that one agent. |
+| `PITCREW_LLM_API_MODEL_DESIGN_REVIEW` | design review | no | `PITCREW_LLM_API_MODEL` | Model for that one agent. |
 | `PITCREW_LLM_API_MODEL_ACCEPTANCE_TEST` | acceptance test | no | `PITCREW_LLM_API_MODEL` | Model for that one agent. Reading a diff and driving a browser for half an hour are different jobs. |
 | `PITCREW_LLM_API_MODEL_REVIEW_GUIDE` | review guide | no | `PITCREW_LLM_API_MODEL` | Model for that one agent. |
-| `PITCREW_FAIL_ON` | bug and security review | no | `high` | Severity from which findings fail the check: `high`, `medium`, `low`, or `never` to keep the agent advisory. Anything else is refused with a warning and `high` is used. |
-| `PITCREW_FAIL_ON_NO_REPORT` | bug and security review, review guide | no | `true` | `false` lets a run whose agent produced no usable report stay green. The default fails it, because a diff nobody reviewed is not a diff nobody found anything in. |
-| `PITCREW_REQUIRE_FULL_COVERAGE` | bug and security review | no | `true` | `false` lets a run whose agent skipped changed files stay green. The default fails it, because a pass built only on hunks is not evidence that the files were reviewed. The comment names the shortfall either way — `Scope: … · 7 of 29 changed files opened`. Markdown, lockfiles and deletions are not on the list, so a docs-only diff cannot go red for this. |
+| `PITCREW_FAIL_ON` | bug, security and design review | no | `high` | Severity from which findings fail the check: `high`, `medium`, `low`, or `never` to keep the agent advisory. Anything else is refused with a warning and `high` is used. |
+| `PITCREW_FAIL_ON_NO_REPORT` | bug, security and design review, review guide | no | `true` | `false` lets a run whose agent produced no usable report stay green. The default fails it, because a diff nobody reviewed is not a diff nobody found anything in. |
+| `PITCREW_REQUIRE_FULL_COVERAGE` | bug, security and design review | no | `true` | `false` lets a run whose agent skipped changed files stay green. The default fails it, because a pass built only on hunks is not evidence that the files were reviewed. The comment names the shortfall either way — `Scope: … · 7 of 29 changed files opened`. Markdown, lockfiles and deletions are not on the list, so a docs-only diff cannot go red for this. |
 | `PITCREW_GUIDE_FLOORS` | review guide | no | the default floors | Path rules that set a minimum reading mode, one per line: a pattern and `check` or `read`. They replace the default list. A value without a valid rule keeps the default and warns. See [review-guide.md](review-guide.md#floors). |
 | `PITCREW_GUIDE_ON_PUSH` | review guide | no | `true` | `false` keeps a push from starting the guide. The old guide is then marked outdated instead, for no model cost. Opening the pull request and `/guide` still start it. |
 | `PITCREW_OUTPUT_LANGUAGE` | all | no | `English` | The language the agent writes its own text in - the summary sentence, finding bodies, criteria evidence. The frame around that text is English on every run, which is why English is the default. |
@@ -75,7 +76,7 @@ involved either way: this is your app talking to your repository.
 
 ## The reusable workflows
 
-Four, one per agent. Each is called with `uses:` and takes its inputs and secrets as shown.
+Five, one per agent. Each is called with `uses:` and takes its inputs and secrets as shown.
 
 ```yaml
 jobs:
@@ -90,13 +91,13 @@ jobs:
 `@v1` is a tag that moves, so a fix arrives without touching a file. Pin a SHA instead if you would
 rather decide when that happens.
 
-### `bug-review.yml` and `security-review.yml`
+### `bug-review.yml`, `security-review.yml` and `design-review.yml`
 
 Identical apart from the agent they run, the check name, and the slash command they listen for.
 
 | Input | Type | Default | Effect |
 | --- | --- | --- | --- |
-| `model` | string | `PITCREW_LLM_API_MODEL_BUG_REVIEW` / `PITCREW_LLM_API_MODEL_SECURITY_REVIEW`, then `PITCREW_LLM_API_MODEL` | Model id. |
+| `model` | string | `PITCREW_LLM_API_MODEL_BUG_REVIEW` / `PITCREW_LLM_API_MODEL_SECURITY_REVIEW` / `PITCREW_LLM_API_MODEL_DESIGN_REVIEW`, then `PITCREW_LLM_API_MODEL` | Model id. |
 | `api-base-url` | string | `PITCREW_LLM_API_BASE_URL` | OpenAI-compatible endpoint. |
 | `fail-on` | string | `PITCREW_FAIL_ON`, then `high` | Severity from which the check fails. |
 | `output-language` | string | `PITCREW_OUTPUT_LANGUAGE`, then `English` | Language the agent writes in. |
@@ -109,10 +110,10 @@ Identical apart from the agent they run, the check name, and the slash command t
 | `app-private-key` | no | Private key of your GitHub App. |
 
 Triggers: a `pull_request` event on a non-draft pull request, or an `issue_comment` containing
-`/review` (bug) or `/security` (security) written by an `OWNER`, `MEMBER` or `COLLABORATOR` who is
+`/review` (bug), `/security` (security) or `/design` (design) written by an `OWNER`, `MEMBER` or `COLLABORATOR` who is
 not a bot.
 
-Check name: `Pitcrew / Bug Review`, `Pitcrew / Security Review`. Called, each gains the caller's job
+Check name: `Pitcrew / Bug Review`, `Pitcrew / Security Review`, `Pitcrew / Design Review`. Called, each gains the caller's job
 id in front.
 
 Job permissions: `contents: read`, `pull-requests: write`, `issues: write`, `checks: read`. The last

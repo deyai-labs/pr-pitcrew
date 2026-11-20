@@ -1,0 +1,53 @@
+# Copy this into your repository as `.github/workflows/pitcrew-design-review.yml`.
+#
+# The design review judges a change by the design guidelines your repository
+# writes down: the document your AGENTS.md or CLAUDE.md links to, or a file
+# such as DESIGN.md. Without written guidelines it has nothing to judge by and
+# reports nothing.
+#
+# This is the whole installation. No scripts, no prompts, no configuration file:
+# they travel with the package at the ref below, and a fix there reaches you
+# when `v1` moves. Pin a SHA instead of `v1` if you would rather decide when
+# that happens - the README says how.
+#
+# Required beforehand, under Settings → Secrets and variables → Actions:
+#   secret   PITCREW_LLM_API_KEY        key for your OpenAI-compatible endpoint
+#   variable PITCREW_LLM_API_BASE_URL   e.g. https://api.example.com/v1
+#   variable PITCREW_LLM_API_MODEL      a model id that endpoint serves
+#
+# Rerun on a pull request by commenting `/design`.
+
+name: Design Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    # Run it only where your user interface lives. A pull request that changes
+    # none of these paths gets no design review at all. GitHub matches the
+    # paths against the whole pull request, so every later push to it runs the
+    # review again. Replace the example paths with yours.
+    paths:
+      - 'src/ui/**'
+      - '**/*.css'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  checks: read
+
+# Recommended, and the reason is in the package's workflow too: concurrency is
+# evaluated when a run is queued, before a job's `if:` may skip it. Without the
+# comment id in the key, every comment on the pull request cancels the review in
+# flight and then skips itself, leaving a cancelled check and no report.
+concurrency:
+  group: design-review-${{ github.event.pull_request.number || github.event.issue.number }}-${{ github.event.comment.id || 'push' }}
+  cancel-in-progress: true
+
+jobs:
+  design-review:
+    uses: deyai-labs/pr-pitcrew/.github/workflows/design-review.yml@v1
+    secrets:
+      api-key: ${{ secrets.PITCREW_LLM_API_KEY }}

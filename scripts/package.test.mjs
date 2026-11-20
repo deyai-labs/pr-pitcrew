@@ -292,7 +292,7 @@ describe('the reusable workflows', () => {
   it('let the caller choose the runner', () => {
     // A runner fixed in here is a runner nobody who calls this can change:
     // `runs-on` is not allowed next to `uses:` on the caller's side.
-    for (const name of ['bug-review.yml', 'security-review.yml', 'acceptance-test.yml', 'review-guide.yml']) {
+    for (const name of ['bug-review.yml', 'security-review.yml', 'design-review.yml', 'acceptance-test.yml', 'review-guide.yml']) {
       const workflow = read('.github/workflows', name);
       assert.match(workflow, /\n      runs-on:\n[\s\S]*?default: ubuntu-latest\n/, `${name}: no runs-on input`);
       assert.match(workflow, /\n    runs-on: \$\{\{[^\n]*inputs\.runs-on[^\n]*\}\}\n/, `${name}: the job ignores the runs-on input`);

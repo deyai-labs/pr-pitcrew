@@ -1,0 +1,128 @@
+name: Pitcrew Design Review
+
+# Reviews a pull request that changes a user interface against the design
+# guidelines of the repository, and again on every push to it.
+#
+# Call this from your own repository with a workflow of about fifteen lines;
+# `examples/design-review.yml` is that file. Nothing is copied: the scripts, the
+# prompt and the permission profile travel with the action this workflow calls,
+# at the ref you pinned.
+#
+# The agent runs read-only, and that is not decoration: the OpenCode runtime
+# commits and pushes whatever it finds in a dirty working tree, so an agent that
+# edited a file by accident would turn a review into a commit. `contents: read`
+# closes the same door from the other side.
+
+on:
+  workflow_call:
+    inputs:
+      model:
+        description: Model id. Defaults to PITCREW_LLM_API_MODEL_DESIGN_REVIEW, then PITCREW_LLM_API_MODEL.
+        type: string
+        required: false
+        default: ''
+      api-base-url:
+        description: OpenAI-compatible endpoint. Defaults to the variable PITCREW_LLM_API_BASE_URL.
+        type: string
+        required: false
+        default: ''
+      fail-on:
+        description: 'Severity from which the check fails: high (default), medium, low, never.'
+        type: string
+        required: false
+        default: ''
+      output-language:
+        description: Language the agent writes in. Defaults to English.
+        type: string
+        required: false
+        default: ''
+      timeout-minutes:
+        type: number
+        required: false
+        default: 20
+      runs-on:
+        description: >-
+          Runner for the job - one label such as `ubuntu-latest`, or a JSON array
+          of labels such as `["self-hosted", "linux"]`. See docs/configuration.md,
+          "Your own runners".
+        type: string
+        required: false
+        default: ubuntu-latest
+    secrets:
+      api-key:
+        description: Key for the OpenAI-compatible endpoint.
+        required: true
+      app-private-key:
+        description: Private key of your GitHub App, to comment under your own name.
+        required: false
+
+# Evaluated when the run is queued, *before* the job's `if:` may skip it. Keyed
+# on the pull request alone, every comment on it - any comment, by anyone, on
+# any subject - queued a run in this group, killed the review in flight and then
+# skipped itself. What was left behind was a cancelled check and nothing else:
+# no error, no report, no clue. So each comment gets a group of its own.
+concurrency:
+  group: pitcrew-design-review-${{ github.event.pull_request.number || github.event.issue.number }}-${{ github.event.comment.id || 'push' }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # This is the check name on the pull request. Called, it gains the caller's
+    # job id in front: `design-review / Pitcrew / Design Review`. If branch protection
+    # requires checks by name, that is the name.
+    name: Pitcrew / Design Review
+    if: >-
+      (github.event_name == 'pull_request' && github.event.pull_request.draft == false) ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request != null &&
+       github.event.comment.user.type != 'Bot' &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
+       contains(github.event.comment.body, '/design'))
+    # One label as it is, or a JSON array for a runner that has to match all of
+    # them. Which runners this can reach is GitHub's rule, not this package's:
+    # see docs/configuration.md, "Your own runners".
+    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+      pull-requests: write
+      # write, not read: the runtime marks the trigger with a reaction, and
+      # reactions on a pull request are governed by the issues permission.
+      issues: write
+      # The next push looks up this agent's check on the last commit. It must
+      # see if that check published a report. Without this, a cancelled review
+      # is skipped.
+      checks: read
+
+    steps:
+      # No `persist-credentials: false` here, on purpose. On a comment-triggered
+      # run OpenCode fetches the pull request branch itself and, with
+      # `use_github_token`, installs no credentials of its own - in a private
+      # repository that fetch needs the ones this step leaves behind. They
+      # cannot push: the job has `contents: read`. On `pull_request` nothing is
+      # fetched; what this step checked out is what the agent reads.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # The agent diffs against the base branch, which a shallow clone lacks.
+          fetch-depth: 0
+
+      - uses: deyai-labs/pr-pitcrew/actions/agent@main
+        with:
+          agent: design-review
+          api-key: ${{ secrets.api-key }}
+          api-base-url: ${{ inputs.api-base-url || vars.PITCREW_LLM_API_BASE_URL }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          app-id: ${{ vars.PITCREW_APP_ID }}
+          app-private-key: ${{ secrets.app-private-key }}
+          # Per agent first, global second. Reading a diff and driving a browser
+          # for half an hour are different jobs, and the model that is cheap and
+          # right for one is not automatically either for the other. Neither has
+          # a default: with both unset the run stops and says so.
+          model: ${{ inputs.model || vars.PITCREW_LLM_API_MODEL_DESIGN_REVIEW || vars.PITCREW_LLM_API_MODEL }}
+          fail-on: ${{ inputs.fail-on || vars.PITCREW_FAIL_ON }}
+          fail-on-no-report: ${{ vars.PITCREW_FAIL_ON_NO_REPORT }}
+          require-full-coverage: ${{ vars.PITCREW_REQUIRE_FULL_COVERAGE }}
+          output-language: ${{ inputs.output-language || vars.PITCREW_OUTPUT_LANGUAGE || 'English' }}
+          # The agent's deadline and the runtime's own timeout come from this: see
+          # actions/agent, "Hand the agent its inputs".
+          timeout-minutes: ${{ inputs.timeout-minutes }}

@@ -15,9 +15,10 @@ not know, it says so rather than inventing a number.
 | --- | --- | --- |
 | `bug-review` | `ubuntu-latest`, no container | a few minutes on a small diff; the timeout is 20 |
 | `security-review` | the same | the same |
+| `design-review` | the same | the same |
 | `acceptance-test` | Playwright container, ~1.5 GB image pull | the longest by far; the timeout is 30 |
 
-The two diff reviews are cheap in minutes and the acceptance test is not. Nothing polls and nothing
+The three diff reviews are cheap in minutes and the acceptance test is not. Nothing polls and nothing
 waits: an earlier version of this had a gatekeeper job that occupied a runner for up to half an hour
 watching other checks go green. It is gone. Ordering between jobs is `needs:`, which waits in the
 queue and costs nothing, and the acceptance test does not wait for anything at all - it starts on an
@@ -52,8 +53,8 @@ Rough shape, for a review of a diff of a few hundred lines: input in the tens of
 output in the low thousands. The acceptance test is a different animal. It is an agentic loop with
 a browser, so it is dominated by the number of turns, and a run of tens of turns is normal.
 
-**Two models, not one.** `PITCREW_LLM_API_MODEL_BUG_REVIEW`, `PITCREW_LLM_API_MODEL_SECURITY_REVIEW` and
-`PITCREW_LLM_API_MODEL_ACCEPTANCE_TEST` exist because reading a diff and driving a browser for half an hour
+**Two models, not one.** `PITCREW_LLM_API_MODEL_BUG_REVIEW`, `PITCREW_LLM_API_MODEL_SECURITY_REVIEW`,
+`PITCREW_LLM_API_MODEL_DESIGN_REVIEW` and `PITCREW_LLM_API_MODEL_ACCEPTANCE_TEST` exist because reading a diff and driving a browser for half an hour
 are different jobs. A cheap model can be entirely adequate at one and useless at the other. This is
 the first knob to reach for.
 
@@ -75,7 +76,7 @@ It is also why the acceptance test does not start on every push. See below.
 | The reviews run on every push | Nothing stops that today; they are cheap. If it still matters, drop `synchronize` from your caller's `on:` and rerun with `/review`. |
 | The review guide runs on every push | Set `PITCREW_GUIDE_ON_PUSH=false`. The guide then runs when the pull request opens and on `/guide`; a push only marks the old guide as outdated, for no model cost. |
 | The acceptance test runs too often | It already only runs on an explicit request. Do not put the reviewer account in `CODEOWNERS`, and do not hang it behind `needs:` in an orchestrator - both make it automatic again. |
-| The model is too expensive for the reviews | Set `PITCREW_LLM_API_MODEL_BUG_REVIEW` and `PITCREW_LLM_API_MODEL_SECURITY_REVIEW` to something cheaper and leave the acceptance test alone. |
+| The model is too expensive for the reviews | Set `PITCREW_LLM_API_MODEL_BUG_REVIEW`, `PITCREW_LLM_API_MODEL_SECURITY_REVIEW` and `PITCREW_LLM_API_MODEL_DESIGN_REVIEW` to something cheaper and leave the acceptance test alone. |
 | Only one agent earns its keep | Enable only that one. They are independent workflows. |
 | A run costs more than it should on a big pull request | Review earlier and smaller. The incremental diff makes a series of small pushes cheaper than one large one. |
 | You want a human to decide before anything is spent | Put the job in a GitHub environment with a required reviewer. |
