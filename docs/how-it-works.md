@@ -368,7 +368,7 @@ Neither defence is retroactive. Comments written before a repository installed t
 and the first run after that may repeat itself once. The pre-1.0 markers `opencode-review-finding`
 and `opencode-review-summary` are still recognised and never written, so a repository that upgrades
 in the middle of a pull request does not repost every standing finding. The same holds for the
-finding marker without a review name, `<!-- pitcrew:finding -->`, written before 1.6. Such a finding
+finding marker without a review name, `<!-- pitcrew:finding -->`, written before 1.5.1. Such a finding
 belongs to the review whose body holds it, recognised by its heading `## <title>`.
 
 ## The report, and the `write_report` tool

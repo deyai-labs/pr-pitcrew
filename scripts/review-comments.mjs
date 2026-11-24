@@ -36,13 +36,13 @@ const SUMMARY_MARKERS = {
  * It carries the review name for the same reason the summary marker does: bug
  * review, security review and design review comment on the same pull request,
  * and each one's quality gate and repeat check must see its own findings only.
- * Before 1.6 the marker named no review, so an open bug-review finding failed
+ * Before 1.5.1 the marker named no review, so an open bug-review finding failed
  * the design review too.
  */
 const FINDING_MARKERS = {
   write: slug => `<!-- pitcrew:finding:${slug} -->`,
   named: /<!-- pitcrew:finding:([a-z0-9-]+) -->/,
-  /** Before 1.6 (`pitcrew:finding`) and before 1.0 (`opencode-review-finding`). */
+  /** Before 1.5.1 (`pitcrew:finding`) and before 1.0 (`opencode-review-finding`). */
   unnamed: /<!-- (?:pitcrew:finding|opencode-review-finding) -->/,
 };
 
@@ -53,7 +53,7 @@ export function findingMarker(title) {
 /**
  * Whether a finding comment belongs to the review called `title`.
  *
- * A named marker decides by itself. An unnamed one, from before 1.6, is
+ * A named marker decides by itself. An unnamed one, from before 1.5.1, is
  * attributed by the review it was posted in: publish-report.mjs opens every
  * review body with `## <title>`. Without that body the finding belongs to no
  * review. Counting it for every review is the coupling this replaces.

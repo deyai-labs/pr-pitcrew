@@ -373,7 +373,7 @@ async function commentedLines() {
 
     for (const comment of json) {
       if (comment.user?.type !== 'Bot') continue;
-      // A marker from before 1.6 names no review; the review it was posted in
+      // A marker from before 1.5.1 names no review; the review it was posted in
       // does. Read only when such a comment turns up.
       if (hasUnnamedFindingMarker(comment.body) && reviews === null) reviews = await reviewBodies();
       if (!isOurFinding(comment.body, title, reviews?.get(comment.pull_request_review_id))) continue;
