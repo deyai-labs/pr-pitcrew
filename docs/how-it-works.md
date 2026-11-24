@@ -355,8 +355,10 @@ swallowed finding is not. In doubt it posts. Whatever it held back is named in t
 nowhere else - suppressing a repetition is only an improvement as long as it does not produce a
 comment of its own.
 
-**What counts as its own comment** is two things at once: the marker `<!-- pitcrew:finding -->` in
-the body, *and* an author GitHub reports as a Bot. Both are needed. The marker is an HTML comment,
+**What counts as its own comment** is two things at once: the marker `<!-- pitcrew:finding:<review> -->`
+in the body, naming this review, *and* an author GitHub reports as a Bot. The review name keeps the
+reviews independent: the bug review, the security review and the design review each see only their
+own findings, in the repeat check and in the quality gate. Both are needed. The marker is an HTML comment,
 so anybody who can review the pull request could paste it into a comment of their own, pick a
 matching title, and switch a finding off without leaving a trace. A person cannot post as a Bot, so
 the pair closes that. A human's objection is theirs to repeat or drop, and a second bot's is the
@@ -365,7 +367,9 @@ second opinion one runs a second tool for; neither carries this marker.
 Neither defence is retroactive. Comments written before a repository installed this carry no marker,
 and the first run after that may repeat itself once. The pre-1.0 markers `opencode-review-finding`
 and `opencode-review-summary` are still recognised and never written, so a repository that upgrades
-in the middle of a pull request does not repost every standing finding.
+in the middle of a pull request does not repost every standing finding. The same holds for the
+finding marker without a review name, `<!-- pitcrew:finding -->`, written before 1.6. Such a finding
+belongs to the review whose body holds it, recognised by its heading `## <title>`.
 
 ## The report, and the `write_report` tool
 

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   belongsToRun,
   findingMarker,
+  hasUnnamedFindingMarker,
   isAnySummaryFrame,
   isOurFinding,
   isOurSummary,
@@ -63,19 +64,44 @@ describe('review-comments', () => {
 });
 
 describe('finding marker', () => {
-  it('writes the current marker', () => {
-    assert.equal(findingMarker, '<!-- pitcrew:finding -->');
+  it('writes a marker that names the review', () => {
+    assert.equal(findingMarker('Bug review'), '<!-- pitcrew:finding:bug-review -->');
+    assert.equal(findingMarker('Design review'), '<!-- pitcrew:finding:design-review -->');
   });
 
-  it('recognises its own marker and the pre-1.0 one, and nothing else', () => {
-    assert.ok(isOurFinding(`A null slips through here.\n\n${findingMarker}`));
+  it('recognises its own named marker, and no sibling review\'s', () => {
+    const bug = `A null slips through here.\n\n${findingMarker('Bug review')}`;
+    assert.ok(isOurFinding(bug, 'Bug review'));
+    // The coupling this prevents: an open bug-review finding failed the gate
+    // of the design review and the security review too.
+    assert.ok(!isOurFinding(bug, 'Design review'));
+    assert.ok(!isOurFinding(bug, 'Security review'));
+    // The review body does not override a named marker.
+    assert.ok(!isOurFinding(bug, 'Design review', '## Design review\n\nSummary.'));
+  });
+
+  it('attributes an unnamed marker by the review it was posted in', () => {
     // A repository that upgrades mid-pull-request must not repost every
-    // standing finding under the new name.
-    assert.ok(isOurFinding('A null slips through here.\n\n<!-- opencode-review-finding -->'));
-    assert.ok(!isOurFinding('A null slips through here.'));
-    assert.ok(!isOurFinding(''));
-    assert.ok(!isOurFinding(null));
-    assert.ok(!isOurFinding(undefined));
+    // standing finding, nor count it for every review.
+    for (const marker of ['<!-- pitcrew:finding -->', '<!-- opencode-review-finding -->']) {
+      const body = `A null slips through here.\n\n${marker}`;
+      assert.ok(isOurFinding(body, 'Bug review', '## Bug review\n\nOne finding.'));
+      assert.ok(isOurFinding(body, 'Bug review', '## Bug review'));
+      assert.ok(!isOurFinding(body, 'Design review', '## Bug review\n\nOne finding.'));
+      assert.ok(!isOurFinding(body, 'Bug review', '## Bug reviewer\n\nOne finding.'));
+      // Without the review, it belongs to no review.
+      assert.ok(!isOurFinding(body, 'Bug review'));
+      assert.ok(!isOurFinding(body, 'Bug review', ''));
+      assert.ok(hasUnnamedFindingMarker(body));
+    }
+    assert.ok(!hasUnnamedFindingMarker(`x\n\n${findingMarker('Bug review')}`));
+  });
+
+  it('recognises nothing without a marker', () => {
+    for (const body of ['A null slips through here.', '', null, undefined]) {
+      assert.ok(!isOurFinding(body, 'Bug review', '## Bug review'));
+      assert.ok(!hasUnnamedFindingMarker(body));
+    }
   });
 });
 

@@ -50,6 +50,7 @@ import { shapeReport } from './report.mjs';
 import {
   belongsToRun,
   findingMarker,
+  hasUnnamedFindingMarker,
   isOurFinding,
   isOurSummary,
   pickSummaryTarget,
@@ -89,9 +90,10 @@ if (reportKind === 'guide') {
 }
 
 // Invisible in the rendered comment, and the only way a later run can tell its
-// own findings from a human's remark or another reviewer's. Written and
-// recognised in review-comments.mjs, which also still reads the pre-1.0 name.
-const MARKER = findingMarker;
+// own findings from a human's remark or another review's. It names the review,
+// so a sibling review's open finding never reaches this review's gate. Written
+// and recognised in review-comments.mjs, which also still reads the old names.
+const MARKER = findingMarker(title);
 
 // The same idea for the summary comment. It carries the review name because
 // under the orchestrator three reviews share one run id, and a marker that
@@ -343,9 +345,10 @@ async function addressableLines() {
  * agent is asked in its prompt not to repeat itself; this is the part that does
  * not depend on it noticing.
  *
- * Only this bundle's own comments count. Two conditions, and both are needed:
- * the marker every rendered finding carries, and an author GitHub reports as a
- * Bot. The marker alone is not evidence of anything - it is an HTML comment,
+ * Only this review's own comments count. Two conditions, and both are needed:
+ * the marker every rendered finding carries, naming this review, and an author
+ * GitHub reports as a Bot. A sibling review's finding on the same line is not a
+ * reason to hold this one back. The marker alone is not evidence of anything - it is an HTML comment,
  * and anyone who can review this pull request could paste it into a comment of
  * their own, pick a title that matches whatever they would rather not hear
  * about, and switch the finding off. Silently, which is the part that matters.
@@ -357,6 +360,7 @@ async function addressableLines() {
  */
 async function commentedLines() {
   const perFile = new Map();
+  let reviews = null;
 
   for (let page = 1; page <= 5; page++) {
     const { ok, json } = await api(`/repos/${repository}/pulls/${prNumber}/comments?per_page=100&page=${page}`);
@@ -368,7 +372,11 @@ async function commentedLines() {
     }
 
     for (const comment of json) {
-      if (comment.user?.type !== 'Bot' || !isOurFinding(comment.body)) continue;
+      if (comment.user?.type !== 'Bot') continue;
+      // A marker from before 1.6 names no review; the review it was posted in
+      // does. Read only when such a comment turns up.
+      if (hasUnnamedFindingMarker(comment.body) && reviews === null) reviews = await reviewBodies();
+      if (!isOurFinding(comment.body, title, reviews?.get(comment.pull_request_review_id))) continue;
       const line = comment.line ?? comment.original_line;
       if (!comment.path || !Number.isInteger(line)) continue;
       // renderFinding writes the title as the first line, in bold - since the
@@ -386,6 +394,24 @@ async function commentedLines() {
   return perFile;
 }
 
+/**
+ * The body of every review on the pull request, by id. Only needed to attribute
+ * a finding whose marker names no review. Empty when the read fails: such a
+ * finding then belongs to no review, which repeats it at worst.
+ */
+async function reviewBodies() {
+  const bodies = new Map();
+
+  for (let page = 1; page <= 5; page++) {
+    const { ok, json } = await api(`/repos/${repository}/pulls/${prNumber}/reviews?per_page=100&page=${page}`);
+    if (!ok || !Array.isArray(json)) return bodies;
+    for (const review of json) bodies.set(review.id, review.body ?? '');
+    if (json.length < 100) break;
+  }
+
+  return bodies;
+}
+
 /** GHES answers GraphQL elsewhere than REST; Actions sets this. */
 const graphqlUrl = process.env.GITHUB_GRAPHQL_URL ?? 'https://api.github.com/graphql';
 
@@ -400,7 +426,7 @@ const THREADS_QUERY = `
             isOutdated
             path
             line
-            comments(first: 1) { nodes { body url author { __typename } } }
+            comments(first: 1) { nodes { body url author { __typename } pullRequestReview { body } } }
           }
         }
       }
@@ -423,8 +449,9 @@ const THREADS_QUERY = `
  *
  * GraphQL rather than REST, because whether a thread is resolved is a property
  * of the thread and the REST review-comment API does not carry it. The same two
- * conditions as everywhere else decide what counts as this bundle's own: the
- * marker in the body *and* an author GitHub reports as a Bot.
+ * conditions as everywhere else decide what counts as this review's own: the
+ * marker in the body, naming this review, *and* an author GitHub reports as a
+ * Bot. Another review's open finding is that review's gate, not this one's.
  *
  * Read before anything is posted, so this run's own comments are history rather
  * than part of it.
@@ -462,7 +489,8 @@ async function unresolvedFindings() {
     for (const thread of threads.nodes ?? []) {
       if (thread.isResolved || thread.isOutdated) continue;
       const comment = thread.comments?.nodes?.[0];
-      if (comment?.author?.__typename !== 'Bot' || !isOurFinding(comment.body)) continue;
+      if (comment?.author?.__typename !== 'Bot') continue;
+      if (!isOurFinding(comment.body, title, comment.pullRequestReview?.body)) continue;
 
       // The shape renderFinding writes: `🔴 **Title** (high)`. The first match
       // is the title line, whatever the body says further down.

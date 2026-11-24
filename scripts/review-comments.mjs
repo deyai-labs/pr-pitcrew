@@ -30,16 +30,52 @@ const SUMMARY_MARKERS = {
   unnamed: '<!-- opencode-review-summary -->',
 };
 
-/** The same migration, for the marker that sits under every inline finding. */
+/**
+ * The same migration, for the marker that sits under every inline finding.
+ *
+ * It carries the review name for the same reason the summary marker does: bug
+ * review, security review and design review comment on the same pull request,
+ * and each one's quality gate and repeat check must see its own findings only.
+ * Before 1.6 the marker named no review, so an open bug-review finding failed
+ * the design review too.
+ */
 const FINDING_MARKERS = {
-  write: '<!-- pitcrew:finding -->',
-  any: /<!-- (?:pitcrew:finding|opencode-review-finding) -->/,
+  write: slug => `<!-- pitcrew:finding:${slug} -->`,
+  named: /<!-- pitcrew:finding:([a-z0-9-]+) -->/,
+  /** Before 1.6 (`pitcrew:finding`) and before 1.0 (`opencode-review-finding`). */
+  unnamed: /<!-- (?:pitcrew:finding|opencode-review-finding) -->/,
 };
 
-export const findingMarker = FINDING_MARKERS.write;
+export function findingMarker(title) {
+  return FINDING_MARKERS.write(reviewSlug(title));
+}
 
-export function isOurFinding(body) {
-  return FINDING_MARKERS.any.test(String(body ?? ''));
+/**
+ * Whether a finding comment belongs to the review called `title`.
+ *
+ * A named marker decides by itself. An unnamed one, from before 1.6, is
+ * attributed by the review it was posted in: publish-report.mjs opens every
+ * review body with `## <title>`. Without that body the finding belongs to no
+ * review. Counting it for every review is the coupling this replaces.
+ */
+export function isOurFinding(body, title, reviewBody) {
+  const text = String(body ?? '');
+  const named = FINDING_MARKERS.named.exec(text);
+  if (named) return named[1] === reviewSlug(title);
+  if (!FINDING_MARKERS.unnamed.test(text)) return false;
+  return isReviewOf(reviewBody, title);
+}
+
+/** Whether a finding comment carries a marker without a review name. */
+export function hasUnnamedFindingMarker(body) {
+  const text = String(body ?? '');
+  return !FINDING_MARKERS.named.test(text) && FINDING_MARKERS.unnamed.test(text);
+}
+
+/** The heading publish-report.mjs writes as the first line of a review body. */
+function isReviewOf(reviewBody, title) {
+  const firstLine = String(reviewBody ?? '').split(/\r?\n/, 1)[0].trim();
+  return firstLine === `## ${title}`;
 }
 
 export function reviewSlug(title) {

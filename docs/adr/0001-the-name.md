@@ -44,7 +44,7 @@ Naming surfaces:
 | prose, README title | PR Pitcrew |
 | variables and secrets | `PITCREW_LLM_API_KEY`, `PITCREW_LLM_API_BASE_URL`, `PITCREW_LLM_API_MODEL`, `PITCREW_ACCEPTANCE_TARGET_URL`, … |
 | check names | `Pitcrew / Bug Review` |
-| comment markers | `<!-- pitcrew:summary:<slug> -->`, `<!-- pitcrew:finding -->` |
+| comment markers | `<!-- pitcrew:summary:<slug> -->`, `<!-- pitcrew:finding:<slug> -->` |
 | working directory | `.pitcrew-run/` |
 | slash commands | unchanged: `/review`, `/security`, `/acceptance` - they name the agent, not the package |
 
