@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-11-24
+
+### Fixed
+
+- **The reviews no longer fail each other's quality gate.** The marker under an inline finding
+  named no review, so every review counted the open findings of every other review. An open
+  finding of the bug review failed the design review and the security review too, and a finding
+  of one review held back the same finding of another as a repetition. The marker now names the
+  review: `<!-- pitcrew:finding:<review> -->`. A finding with the old marker belongs to the review
+  it was posted in. Upgrade in the middle of a pull request is safe: no finding is posted twice
+  or lost from its own gate.
+
 ## [1.5.0] - 2026-11-20
 
 ### Added
@@ -216,7 +228,8 @@ is no plan to remove it.
 Version `1.0.0` rather than `0.1.0`: the interface is the one that had been running in a
 private repository for weeks, and `@v1` is what the documentation references.
 
-[Unreleased]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/deyai-labs/pr-pitcrew/compare/v1.3.1...v1.4.0
