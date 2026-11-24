@@ -383,9 +383,10 @@ async function commentedLines() {
       // severity marks it is preceded by a symbol, and comments from before that
       // start with the bold run itself. `[^*]*` covers both, and stops at the
       // first asterisk so it cannot skip past an empty title into a later line.
-      const title = /^[^*]*\*\*(.+?)\*\*/.exec(comment.body)?.[1] ?? '';
+      // Not `title`: that name is the review's, and the check above reads it.
+      const findingTitle = /^[^*]*\*\*(.+?)\*\*/.exec(comment.body)?.[1] ?? '';
       if (!perFile.has(comment.path)) perFile.set(comment.path, []);
-      perFile.get(comment.path).push({ line, title });
+      perFile.get(comment.path).push({ line, title: findingTitle });
     }
 
     if (json.length < 100) break;
